@@ -29,7 +29,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   | Red | a tool call that failed |
 
 - **A chime** when Claude finishes a reply: a deep pulse, one low thump and a dark chord that breathes out, under two seconds long. Not played for a reply you stopped.
-- A near-black green palette for dark mode, with soft, nearly white text and a dense frosted panel behind the chat, so the rain glows behind the conversation without crossing the words. No status bar or band.
+- A near-black green palette for dark mode, with soft, nearly white text and a dense frosted panel behind the chat, so the rain glows behind the conversation without crossing the words. Code blocks use the `vitesse-black` code theme: pure black, with soft teal and green syntax. No status bar or band.
 
 ## Install
 

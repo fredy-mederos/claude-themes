@@ -92,7 +92,10 @@ const { theme } = makeColors({
     },
   },
   only: 'dark',
-  codeTheme: { dark: 'github-dark' },
+  // The code theme paints the code blocks' background too: vitesse-black's is
+  // pure black, with soft teal and green syntax (github-dark's #24292e read
+  // as a light grey box on this page).
+  codeTheme: { dark: 'vitesse-black' },
 })
 
 const LOOK: ThemeSetArgs = {
