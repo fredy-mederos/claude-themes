@@ -169,9 +169,20 @@ type Fall = { dur: number; begin: number; repeat: string; from?: number }
 
 const topOf = (s: Shape) => -(s.glyphs.length + 2) * LAYERS[s.layer].cell
 
+// What a stream is painted with: its body (the changing letters), its trail
+// (the letters that fade up from the head) and its head.
+type Paint = { body: string; trail: string; head: string }
+
+// A tool call's colour as paint.
+const tinted = (color: string): Paint => ({ body: color, trail: `url(#${gradId(color)})`, head: toWhite(color, 0.7) })
+
+// The rain's own paint: shared paint servers in <defs> (see `rainPaint`), so
+// one colour change there turns every stream grey or green at once.
+const RAIN: Paint = { body: 'url(#rain)', trail: 'url(#rainTrail)', head: 'url(#rainHead)' }
+
 // One stream: a column of glyphs fading up from a bright, scrambling head,
 // hung from its point on the top edge and slid down past the window's foot.
-const stream = (s: Shape, alpha: number, color: string, head: string, fall: Fall) => {
+const stream = (s: Shape, alpha: number, paint: Paint, fall: Fall) => {
   const L = LAYERS[s.layer]
   const n = s.glyphs.length
   const top = topOf(s)
@@ -196,11 +207,11 @@ const stream = (s: Shape, alpha: number, color: string, head: string, fall: Fall
 
   return (
     `<svg x="${s.x.toFixed(2)}%" width="1" height="1" overflow="visible">` +
-    `<g class="${L.cls}" fill="${color}" opacity="${alpha}" transform="translate(0 ${top})">` +
+    `<g class="${L.cls}" fill="${paint.body}" opacity="${alpha}" transform="translate(0 ${top})">` +
     `<animateTransform attributeName="transform" type="translate" from="0 ${from.toFixed(0)}" to="0 ${TRAVEL}" dur="${fall.dur.toFixed(2)}s" begin="${fall.begin.toFixed(2)}s" repeatCount="${fall.repeat}"${freeze}/>` +
-    `<text x="${xs.join(' ')}" y="${ys.join(' ')}" fill="url(#${gradId(color)})">${still}</text>` +
+    `<text x="${xs.join(' ')}" y="${ys.join(' ')}" fill="${paint.trail}">${still}</text>` +
     changing +
-    `<use href="#h${s.head}" y="${(n + 1) * L.cell}" fill="${head}"/>` +
+    `<use href="#h${s.head}" y="${(n + 1) * L.cell}" fill="${paint.head}"/>` +
     `</g></svg>`
   )
 }
@@ -215,7 +226,7 @@ const phaseAt = (c: Column, v: number) => {
 }
 
 const steady = (c: Column, v: number, k: number) =>
-  stream(c, LAYERS[c.layer].alpha, GREEN, GREEN_HEAD, {
+  stream(c, LAYERS[c.layer].alpha, RAIN, {
     dur: periodOf(c) * k,
     begin: -phaseAt(c, v) * k,
     repeat: 'indefinite',
@@ -226,7 +237,7 @@ const steady = (c: Column, v: number, k: number) =>
 const joining = (c: Column, view: View, now: number) => {
   const p = periodOf(c)
 
-  return stream(c, LAYERS[c.layer].alpha, GREEN, GREEN_HEAD, {
+  return stream(c, LAYERS[c.layer].alpha, RAIN, {
     dur: p,
     begin: view.tR + (p - phaseAt(c, view.vR)) - now,
     repeat: 'indefinite',
@@ -248,7 +259,7 @@ const leaving = (c: Column, view: View, now: number) => {
   }
   const top = topOf(c)
 
-  return stream(c, LAYERS[c.layer].alpha, GREEN, GREEN_HEAD, {
+  return stream(c, LAYERS[c.layer].alpha, RAIN, {
     dur: left,
     begin: view.tR - now,
     repeat: '1',
@@ -262,7 +273,7 @@ const leaving = (c: Column, view: View, now: number) => {
 const burst = (b: Burst, now: number) => {
   const r = rng(b.seed)
   const age = now - b.at
-  const head = toWhite(b.color, 0.7)
+  const paint = tinted(b.color)
   let out = ''
   for (let j = 0; j < b.size; j++) {
     const x = 1 + r() * 98
@@ -273,24 +284,41 @@ const burst = (b: Burst, now: number) => {
     if (age > delay + dur * 2) {
       continue
     }
-    out += stream(s, 0.95, b.color, head, { dur, begin: delay - age, repeat: '2' })
+    out += stream(s, 0.95, paint, { dur, begin: delay - age, repeat: '2' })
   }
 
   return out
 }
 
-// Idle is muted: dimmer rain and no green light behind it. A turn brings the
-// light up quickly; when it ends the light fades out slowly.
+// Idle is muted: dimmer, grey rain and no green light behind it. A turn brings
+// the green and the light up quickly; when it ends they fade out slowly.
 const OPACITY: Record<Mood, number> = { idle: 0.55, busy: 1 }
 const GLOW: Record<Mood, number> = { idle: 0, busy: 1 }
 const FADE: Record<Mood, number> = { idle: 3, busy: 1.2 }
+// A grey with a trace of the green in it, so idle still reads as the same rain.
+const BODY: Record<Mood, string> = { idle: '#93a89a', busy: GREEN }
+const HEAD: Record<Mood, string> = { idle: '#dce6df', busy: GREEN_HEAD }
 
 // An attribute easing from the last mood's value to this one's, from when the
 // window saw the change; nothing when the mood didn't change.
-const ease = (view: View, now: number, of: Record<Mood, number>) =>
+const ease = (view: View, now: number, of: Record<Mood, number | string>, attribute = 'opacity') =>
   view.from === view.mood
     ? ''
-    : `<animate attributeName="opacity" from="${of[view.from]}" to="${of[view.mood]}" dur="${FADE[view.mood]}s" begin="${(view.tR - now).toFixed(2)}s" fill="freeze"/>`
+    : `<animate attributeName="${attribute}" from="${of[view.from]}" to="${of[view.mood]}" dur="${FADE[view.mood]}s" begin="${(view.tR - now).toFixed(2)}s" fill="freeze"/>`
+
+const stop = (view: View, now: number, of: Record<Mood, string>, offset: string, opacity: string) =>
+  `<stop offset="${offset}" stop-color="${of[view.mood]}" stop-opacity="${opacity}">${ease(view, now, of, 'stop-color')}</stop>`
+
+// The paint servers every rain stream uses (`RAIN`). One stop is a solid
+// colour; in user space it paints any shape, however small its box.
+const rainPaint = (view: View, now: number) =>
+  `<linearGradient id="rain" gradientUnits="userSpaceOnUse">${stop(view, now, BODY, '0', '1')}</linearGradient>` +
+  `<linearGradient id="rainHead" gradientUnits="userSpaceOnUse">${stop(view, now, HEAD, '0', '1')}</linearGradient>` +
+  `<linearGradient id="rainTrail" x1="0" y1="0" x2="0" y2="1">` +
+  stop(view, now, BODY, '0', '0') +
+  stop(view, now, BODY, '.55', '.55') +
+  stop(view, now, BODY, '1', '1') +
+  `</linearGradient>`
 
 export const scene = (view: View, bursts: Burst[], now: number): string => {
   const k = K[view.mood]
@@ -320,7 +348,7 @@ text{text-anchor:middle;font-weight:500}
 .a{font-size:11px}.b{font-size:14px}.c{font-size:18px}
 </style>
 <defs>
-${gradient(GREEN)}
+${rainPaint(view, now)}
 ${colors.map(gradient).join('\n')}
 <radialGradient id="glow" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="#0a3a1c" stop-opacity=".5"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></radialGradient>
 ${CELLS[view.mood]}
