@@ -1,11 +1,14 @@
 {
-  "name": "matrix-claude-theme",
+  "name": "claude-themes",
   "owner": { "name": "fredy-mederos" },
+  "metadata": {
+    "description": "Animated themes for the Claude desktop app, one plugin per theme."
+  },
   "plugins": [
     {
       "name": "matrix-rain",
-      "source": "./",
-      "description": "Matrix rain theme for the Claude desktop app: green code that drifts while idle, pours while Claude works, and drops coloured streams on every tool call."
+      "source": "./themes/matrix-rain",
+      "description": "Matrix rain: green code that drifts while idle, pours while Claude works, drops coloured streams on every tool call, and chimes when a reply ends."
     }
   ]
 }

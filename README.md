@@ -1,27 +1,12 @@
-# Matrix Rain
+# Claude themes
 
-A theme for the Claude desktop app: green code raining down behind the conversation.
+Animated themes for the Claude desktop app. Each theme is its own plugin in `themes/<name>/`, so you can install just the one you want.
 
-- **Idle:** about fifty streams drift down very slowly, in three depths (small and dim at the back, large and bright at the front).
-- **While Claude works:** the rain speeds up about seven times and more streams join from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
-- **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles.
-- **Tool calls:** every tool call drops a handful of fast, bright streams in a colour for the kind of work:
+| Theme | What it does |
+| --- | --- |
+| [Matrix Rain](themes/matrix-rain/) (`matrix-rain`) | Green code that drifts while idle, pours while Claude works, drops coloured streams on every tool call, has letters that change as they fall, and chimes when a reply ends. |
 
-  | Colour | Tools |
-  | --- | --- |
-  | Cyan | Read, Grep, Glob |
-  | Magenta | Edit, Write |
-  | Amber | Bash |
-  | Violet | web and browser tools |
-  | Gold | Agent |
-  | Blue | other MCP tools |
-  | White | everything else |
-  | Red | a tool call that failed |
-
-- **A chime** when Claude finishes a reply: a short cascade of digital blips over a low hum. Not played for a reply you stopped.
-- A near-black green palette for dark mode, with a frosted panel behind the chat so text stays readable. No status bar or band.
-
-## Install
+## Install a theme
 
 At the prompt of a Claude Code terminal session:
 
@@ -39,22 +24,27 @@ claude plugin install matrix-rain --marketplace fredy-mederos/matrix_claude_them
 
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `fredy-mederos/matrix_claude_theme`, then **Add plugin**.
 
-The rain shows in the Claude desktop app, which draws a mod's backdrop. In a new session it appears once you send the first message.
+Swap `matrix-rain` for any theme's name in the table above.
 
-## Commands
+## One theme at a time
 
-- `/matrix off` turns the theme off, here and in new sessions. `/matrix on` brings it back.
-- `/matrix sound off` silences the chime. `/matrix sound on` brings it back.
+A session has one look. With two themes on, they compete: the last one to start wins the look, while the other's sounds and reactions keep running. Keep one on, and turn the others off with their own command (Matrix Rain: `/matrix off`).
 
-## Good to know
+## Working on the themes locally
 
-- The app reloads the backdrop on each redraw: when a turn starts or ends, and at most every 3 seconds while tools run. Each stream carries on from where it was.
-- The app holds every animated background still when macOS Reduce Motion is on, when its background-animation setting is off, or when it's drawing without the GPU. If the rain stops and the chat panel's blur is gone, quitting and reopening the app brings the GPU back.
-- The chime is `sounds/turn-end.wav`, synthesized by `tools/make-sound.py` (Python standard library only). Change the script and run `python3 tools/make-sound.py` to make your own.
+This folder is the repository. Claude Code loads a theme from `~/.claude/skills/<name>/`, so each theme is linked there from `themes/<name>/`, and an edit here shows in the next new session.
 
-## Files
+```bash
+scripts/link-themes                  # link every theme in themes/
+scripts/link-themes matrix-rain      # link one
+scripts/link-themes --unlink matrix-rain
+```
 
-- `hooks/register.tsx`: the look, the reactions to turns and tool calls, the chime and `/matrix`.
-- `hooks/scene.ts`: the animated SVG backdrop (SMIL only, sized in window pixels).
-- `hooks/make-colors.js`: the palette builder from Claude Code's plugin-authoring kit.
-- `tests/`: run with `claude plugin test .`
+Linking only the theme you're using is the simplest way to keep one on.
+
+### Adding a theme
+
+1. Make its folder: `~/.claude/skills/claude-themes/scripts/new-theme <name> themes` (or copy `themes/matrix-rain` and rename it everywhere).
+2. Add an entry to `.claude-plugin/marketplace.json`: `{ "name": "<name>", "source": "./themes/<name>", "description": "…" }`.
+3. Add a row to the table above, and a `README.md` in its folder.
+4. `scripts/link-themes <name>`, then check it: `claude plugin validate themes/<name>` and `claude plugin test themes/<name>`.

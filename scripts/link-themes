@@ -1,0 +1,57 @@
+#!/bin/bash
+# link-themes [theme ...]          link these themes (all of themes/ when none named)
+# link-themes --unlink theme ...   remove those links
+#
+# Claude Code loads a plugin from ~/.claude/skills/<name>/ in every new
+# session. This links themes/<name>/ there, so the repository stays the one
+# place a theme is edited. It never replaces anything at that path that isn't
+# already a link to this repository.
+set -euo pipefail
+
+repo=$(cd "$(dirname "$0")/.." && pwd)
+skills=${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}
+
+if [[ ${1:-} == --unlink ]]; then
+  shift
+  for name in "$@"; do
+    dest=$skills/$name
+    if [[ -L $dest && $(readlink "$dest") == "$repo/themes/$name" ]]; then
+      rm "$dest"
+      echo "unlinked $name"
+    else
+      echo "skip $name: $dest is not a link to this repository"
+    fi
+  done
+  exit 0
+fi
+
+if [[ $# -eq 0 ]]; then
+  for dir in "$repo"/themes/*/; do
+    [[ -d $dir ]] && set -- "$@" "$(basename "$dir")"
+  done
+fi
+if [[ $# -eq 0 ]]; then
+  echo "no themes in $repo/themes"
+  exit 1
+fi
+
+mkdir -p "$skills"
+for name in "$@"; do
+  src=$repo/themes/$name
+  dest=$skills/$name
+  if [[ ! -f $src/.claude-plugin/plugin.json ]]; then
+    echo "skip $name: no themes/$name/.claude-plugin/plugin.json"
+  elif [[ -L $dest ]]; then
+    if [[ $(readlink "$dest") == "$src" ]]; then
+      echo "ok   $name (already linked)"
+    else
+      echo "skip $name: $dest links to $(readlink "$dest")"
+    fi
+  elif [[ -e $dest ]]; then
+    echo "skip $name: $dest is already there and is not a link"
+  else
+    ln -s "$src" "$dest"
+    echo "link $name -> $dest"
+  fi
+done
+echo "New sessions load linked themes. Keep one on at a time: each sets the whole look."
