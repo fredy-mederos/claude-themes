@@ -39,6 +39,19 @@ const stage = atom({ plugin: 'matrix-rain', key: 'stage' } as const, { mood: 'id
 let shown: View | undefined
 const seen = new Map<number, number>()
 
+// The last drawing, and the state it was drawn from. The app asks for the
+// backdrop again whenever the window's size changes, and the rain doesn't
+// depend on it: asked again with nothing changed, the hook hands back this
+// same drawing, without reading the clock, rather than a fresh image for the
+// app to swap in at every step of a resize. Every HEAL_MS it is drawn anew
+// all the same, so a backdrop the app dropped (seen after resizing) comes
+// back on its own instead of waiting for the next turn.
+let drawn: { key: string; source: string; alt: string } | undefined
+const HEAL_MS = 20_000
+let healer: Timer | undefined
+
+const keyOf = (s: Stage) => `${s.mood}:${s.bursts.map(b => b.seed).join(',')}`
+
 function settle(mood: Mood, now: number): View {
   shown = shown === undefined ? start(mood, now) : shown.mood === mood ? shown : shift(shown, mood, now)
 
@@ -269,6 +282,11 @@ export const register: Register = on => {
     if (!(await isOff($))) {
       await $.theme.set(LOOK)
     }
+    healer?.cancel()
+    healer = $.clock.every(HEAL_MS, () => {
+      drawn = undefined
+      $.ui.invalidate('ui.render')
+    })
     // A session that ended mid-turn may have stored busy.
     running = false
     level = 'idle'
@@ -393,14 +411,20 @@ export const register: Register = on => {
     }
     const { Svg } = $.ui.resolve(e)
     const s = await read($, stage)
-    const now = (await $.clock.now()) / 1000
-    const view = settle(s.mood, now)
+    const key = keyOf(s)
+    if (drawn?.key !== key) {
+      const now = (await $.clock.now()) / 1000
+      drawn = { key, source: scene(settle(s.mood, now), firstDrawn(s.bursts, now), now), alt: ALT[s.mood] }
+    }
 
-    return (
-      <Svg
-        source={scene(view, firstDrawn(s.bursts, now), now)}
-        alt={ALT[s.mood]}
-      />
-    )
+    return <Svg source={drawn.source} alt={drawn.alt} />
+    // A drawing that failed shows the last one, not the app's empty backdrop.
+  }).catch(($, e, next) => {
+    if (drawn === undefined || (e.surface !== 'desktop' && e.surface !== 'mobile') || e.props.scene !== SCENE) {
+      return next(e)
+    }
+    const { Svg } = $.ui.resolve(e)
+
+    return <Svg source={drawn.source} alt={drawn.alt} />
   })
 }

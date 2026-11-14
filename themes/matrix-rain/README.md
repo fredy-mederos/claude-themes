@@ -69,6 +69,7 @@ The rain shows in the Claude desktop app, which draws a mod's backdrop. In a new
 ## Good to know
 
 - The app reloads the backdrop on each redraw: when a turn starts or ends, when the rain changes level, and at most every 3 seconds while tools run. Each stream carries on from where it was.
+- Resizing the window doesn't redraw the rain: the app asks again at each new size, and the theme hands back the same drawing. If the app still drops the backdrop while resizing, the theme draws it anew every 20 seconds, so the rain comes back on its own.
 - The storm follows the writing a few seconds behind: the rate is the average over the last 8 seconds, the rain is redrawn at most every 3, and it steps down only once Claude has written less for 3 seconds, so a short pause between two replies doesn't thin it.
 - The app holds every animated background still when macOS Reduce Motion is on, when its background-animation setting is off, or when it's drawing without the GPU. If the rain stops and the chat panel's blur is gone, quitting and reopening the app brings the GPU back.
 - The chime is `sounds/turn-end.wav`, synthesized by `tools/make-sound.py` (Python standard library only). Change the script and run `python3 tools/make-sound.py` to make your own.

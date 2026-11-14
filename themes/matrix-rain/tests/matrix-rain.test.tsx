@@ -225,6 +225,26 @@ test('one model writing stays working; two at once make a storm', () => {
   expect(levelFor('busy', m.tick(50))).toBe('wait')
 })
 
+test('asked again with nothing changed, as on a resize, the drawing is the same', async ($, on) => {
+  const { clock, ui, svg } = await session($, on)
+  const first = (await svg()).source
+  // The app asks again (a window of another size): the same drawing, though
+  // the clock has moved on, so the app has no new image to swap in.
+  await ui.unmount()
+  await clock.advance(5000)
+  const again = await $.ui.mount(BACKDROP)
+  expect(((await again.find({ type: 'Svg' })) as any).props.source).toBe(first)
+  await again.unmount()
+  // Every 20 seconds it is drawn anew all the same, the rain carrying on from
+  // where it was: a backdrop the app dropped comes back on its own.
+  await clock.advance(16_000)
+  const healed = await $.ui.mount(BACKDROP)
+  const fresh = ((await healed.find({ type: 'Svg' })) as any).props.source
+  expect(fresh).not.toBe(first)
+  expect(streams(fresh)).toBe(50)
+  await healed.unmount()
+})
+
 test('a finished reply plays the chime, a stopped one does not', async ($, on) => {
   const played: string[] = []
   on('clock.now', () => ({ value: 3_000_000 }))
