@@ -67,7 +67,8 @@ const word = (r: Rand, n: number) => Array.from({ length: n }, () => pick(r))
 // A flicker cell is a few glyphs stacked in one spot, shown one at a time by
 // discrete SMIL on `visibility`. Cells are drawn once in <defs> and placed
 // down the streams with <use>: a letter that keeps changing costs a stream
-// one short tag. Trail cells change every ~0.3-1.2 s; head cells scramble.
+// one short tag. While Claude works, trail cells change every ~0.3-1.2 s and
+// head cells scramble; idle, they change K times slower, as the rain falls.
 const FLICKS = 28
 const HEADS = 14
 
@@ -84,13 +85,16 @@ const cell = (id: string, glyphs: string[], step: number) => {
   return `<g id="${id}">${parts.join('')}</g>`
 }
 
-const CELLS = (() => {
+// The same glyphs for both moods (one seed); only the pace differs.
+const cells = (k: number) => {
   const r = rng(77)
-  const trail = Array.from({ length: FLICKS }, (_, i) => cell(`f${i}`, word(r, 3), 0.3 + r() * 0.9))
-  const heads = Array.from({ length: HEADS }, (_, i) => cell(`h${i}`, word(r, 4), 0.07 + r() * 0.08))
+  const trail = Array.from({ length: FLICKS }, (_, i) => cell(`f${i}`, word(r, 3), (0.3 + r() * 0.9) * k))
+  const heads = Array.from({ length: HEADS }, (_, i) => cell(`h${i}`, word(r, 4), (0.07 + r() * 0.08) * k))
 
   return `<g text-anchor="middle">${trail.join('')}${heads.join('')}</g>`
-})()
+}
+
+const CELLS: Record<Mood, string> = { idle: cells(K.idle), busy: cells(K.busy) }
 
 // ── Streams ─────────────────────────────────────────────────────────────
 type Shape = {
@@ -302,7 +306,7 @@ export const scene = (view: View, bursts: Burst[], now: number): string => {
   const used: string[] = []
   for (const b of [...bursts].reverse()) {
     const one = burst(b, now)
-    if (CELLS.length + rain.length + drawn.length + one.length > 120000) {
+    if (CELLS[view.mood].length + rain.length + drawn.length + one.length > 120000) {
       break
     }
     drawn = one + drawn
@@ -319,7 +323,7 @@ text{text-anchor:middle;font-weight:500}
 ${gradient(GREEN)}
 ${colors.map(gradient).join('\n')}
 <radialGradient id="glow" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="#0a3a1c" stop-opacity=".5"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></radialGradient>
-${CELLS}
+${CELLS[view.mood]}
 </defs>
 <rect width="100%" height="100%" fill="#010603"/>
 <rect width="100%" height="100%" fill="url(#glow)" opacity="${GLOW[view.mood]}">${ease(view, now, GLOW)}</rect>

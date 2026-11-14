@@ -14,7 +14,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
 
 - **Idle:** muted. About fifty dim streams drift down very slowly, in three depths (small and faint at the back, larger at the front), on plain black.
 - **While Claude works:** a green light comes up behind the rain, the rain brightens and speeds up about fourteen times, and more streams join from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
-- **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles.
+- **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles. They change at the rain's own pace: slowly while idle, fast while Claude works.
 - **Tool calls:** every tool call drops a handful of fast, bright streams in a colour for the kind of work:
 
   | Colour | Tools |

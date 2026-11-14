@@ -8,6 +8,10 @@ const BACKDROP = {
   props: { scene: 'matrix-rain', plugin: 'matrix-rain', glass: false },
 } as any
 
+// How long each stream head's scramble takes to cycle, in seconds.
+const headCycles = (source: string) =>
+  [...source.matchAll(/<g id="h\d+"><text>[^<]*<animate [^>]*dur="([\d.]+)s"/g)].map(m => Number(m[1]))
+
 test('the backdrop is one slow Svg while idle', async ($, on) => {
   on('clock.now', () => ({ value: 1_000_000 }))
   const ui = await $.ui.mount(BACKDROP)
@@ -16,6 +20,9 @@ test('the backdrop is one slow Svg while idle', async ($, on) => {
   expect(svg.props.alt).toMatch(/slowly/)
   // Muted: the green light behind the rain is off.
   expect(svg.props.source).toMatch(/fill="url\(#glow\)" opacity="0"/)
+  // The letters change at the rain's idle pace: heads cycle in seconds.
+  expect(headCycles(svg.props.source).length).toBe(14)
+  expect(Math.min(...headCycles(svg.props.source))).toBeGreaterThan(3.5)
   expect(svg.props.source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
   expect(svg.props.source.length).toBeLessThan(131072)
   await ui.unmount()
@@ -45,6 +52,9 @@ test('a turn makes it pour, and a tool call drops streams in its colour', async 
   // The light comes up as the turn starts.
   expect(svg.props.source).toMatch(/fill="url\(#glow\)" opacity="1"><animate attributeName="opacity" from="0" to="1"/)
   expect(svg.props.source).toMatch(/#26e7ff/)
+  // Working, the heads scramble fast again.
+  expect(headCycles(svg.props.source).length).toBe(14)
+  expect(Math.max(...headCycles(svg.props.source))).toBeLessThan(0.7)
   // The letters that change: shared cells, placed down the streams.
   expect(svg.props.source).toMatch(/<use href="#f\d+"/)
   expect(svg.props.source).toMatch(/<use href="#h\d+"/)
