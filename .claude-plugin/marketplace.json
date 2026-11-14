@@ -8,6 +8,7 @@
     {
       "name": "matrix-rain",
       "source": "./themes/matrix-rain",
+      "version": "0.2.0",
       "description": "Matrix rain: green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, and chimes when a reply ends."
     }
   ]

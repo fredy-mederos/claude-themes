@@ -47,6 +47,6 @@ Linking only the theme you're using is the simplest way to keep one on.
 ### Adding a theme
 
 1. Make its folder: `~/.claude/skills/claude-themes/scripts/new-theme <name> themes` (or copy `themes/matrix-rain` and rename it everywhere).
-2. Add an entry to `.claude-plugin/marketplace.json`: `{ "name": "<name>", "source": "./themes/<name>", "description": "…" }`.
+2. Add an entry to `.claude-plugin/marketplace.json`: `{ "name": "<name>", "source": "./themes/<name>", "version": "0.1.0", "description": "…" }`, the same version as its `plugin.json`.
 3. Add a row to the table above, and a `README.md` in its folder.
 4. `scripts/link-themes <name>`, then check it: `claude plugin validate themes/<name>` and `claude plugin test themes/<name>`.

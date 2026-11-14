@@ -78,6 +78,18 @@ const { theme } = makeColors({
         'text-muted': '#9cc0a6',
       },
     },
+    // Diffs and git states in vitesse-black's own colours, to match the code
+    // blocks. Added, modified, merged and draft are a little lighter than
+    // vitesse's, as much as their labels need to read on their tints.
+    git: {
+      added: '#69a48b',
+      removed: '#cb7676',
+      modified: '#6f9dc4',
+      merged: '#da76a1',
+      closed: '#cb7676',
+      conflicting: '#d4976c',
+      draft: '#8e9b8e',
+    },
   },
   only: 'dark',
   // The code theme paints the code blocks' background too: vitesse-black's is
