@@ -60,6 +60,17 @@ In the desktop app, where `/plugin` does not run: click **+** next to the prompt
 
 The rain shows in the Claude desktop app, which draws a mod's backdrop. In a new session it appears once you send the first message.
 
+## Update
+
+Claude Code keeps its own copy of the marketplace and doesn't refresh it by itself, so `claude plugin update` alone reports the version you already have. Refresh the marketplace first, then update the theme:
+
+```bash
+claude plugin marketplace update claude-themes
+claude plugin update matrix-rain@claude-themes
+```
+
+Then restart the app to load the new version.
+
 ## Commands
 
 - `/matrix off` turns the theme off, here and in new sessions. `/matrix on` brings it back.
