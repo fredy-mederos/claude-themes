@@ -3,15 +3,18 @@ import type { EngineInterface, Register, ThemeSetArgs, Timer } from 'claude-code
 
 import type { Burst, Live, Mood, Seed, Stage } from '../types'
 import { makeColors } from './make-colors.js'
-import { BURST_LIFE, K, scene, virtual } from './scene'
+import { levelFor, meter, RANK } from './meter'
+import { BURST_LIFE, scene, shift, start } from './scene'
 import type { View } from './scene'
 
 // Matrix rain: green code falling behind the conversation. Slow, nearly still
 // while nothing runs; fast while a turn runs; every tool call drops a few
 // streams in its own colour (reads cyan, edits magenta, shell amber, web
 // violet, agents gold, other MCP tools blue, the rest white, a failure red).
-// A short digital chime when a reply ends. No band and no status line, on
-// purpose. /matrix on|off, /matrix sound on|off.
+// With the storm on, a running turn's rain follows the tokens the model
+// writes: light while it waits on a command or a job, a storm while it writes
+// a lot. A short digital chime when a reply ends. No band and no status line,
+// on purpose. /matrix on|off, /matrix sound on|off, /matrix storm on|off.
 
 const SCENE = 'matrix-rain'
 
@@ -37,24 +40,9 @@ let shown: View | undefined
 const seen = new Map<number, number>()
 
 function settle(mood: Mood, now: number): View {
-  const was = shown
-  const view: View =
-    was === undefined
-      ? { mood, from: mood, tR: now, vR: now / K[mood], prevTR: -Infinity, prevVR: 0 }
-      : was.mood === mood
-        ? was
-        : {
-            mood,
-            from: was.mood,
-            tR: now,
-            vR: virtual(was, now),
-            // A view with no change in it let every column fall steadily: all joined.
-            prevTR: was.from === was.mood ? -Infinity : was.tR,
-            prevVR: was.vR,
-          }
-  shown = view
+  shown = shown === undefined ? start(mood, now) : shown.mood === mood ? shown : shift(shown, mood, now)
 
-  return view
+  return shown
 }
 
 function firstDrawn(bursts: Burst[], now: number): Burst[] {
@@ -107,6 +95,13 @@ const LOOK: ThemeSetArgs = {
 
 const RED = '#ff3346'
 
+const ALT: Record<Mood, string> = {
+  idle: 'Green code drifting slowly down a black screen',
+  wait: 'Green code falling steadily down a black screen',
+  busy: 'Green code raining fast down a black screen',
+  storm: 'Green code pouring down a black screen in a storm',
+}
+
 // A tool's colour, by what kind of work it is.
 const hue = (tool: string): string => {
   if (/^(Read|Grep|Glob|LS|NotebookRead)$/.test(tool)) {
@@ -135,8 +130,64 @@ const hue = (tool: string): string => {
 let lastRedraw = 0
 let pending: Timer | undefined
 
-// Takes the queued tool calls (and a new mood, if given) into the backdrop in
-// one write, so one redraw.
+// The rain wanted now. Unknown after a reload until a turn starts or ends,
+// and a redraw meanwhile keeps the level the backdrop shows.
+let level: Mood | undefined
+// A main-loop turn is running.
+let running = false
+
+// ── The storm ───────────────────────────────────────────────────────────
+// While a turn runs with the storm on, a tick reads the token meter once a
+// second and asks for the level it calls for. More rain is drawn at the next
+// redraw; less only once the meter has asked for it for HOLD seconds, so a
+// pause between two replies doesn't thin the rain.
+const TICK_MS = 1000
+const HOLD = 3
+
+const tokens = meter()
+let ticker: Timer | undefined
+// When the meter first asked for less rain than the level now.
+let lower: number | undefined
+
+async function stormy($: EngineInterface) {
+  return (await $.store.get('nostorm')) !== true && !(await isOff($))
+}
+
+async function tick($: EngineInterface) {
+  const now = (await $.clock.now()) / 1000
+  if (!running || ticker === undefined || level === undefined) {
+    return
+  }
+  const want = levelFor(level, tokens.tick(now))
+  if (RANK[want] < RANK[level]) {
+    lower ??= now
+    if (now - lower < HOLD) {
+      return
+    }
+  }
+  lower = undefined
+  if (want !== level) {
+    level = want
+    await schedule($)
+  }
+}
+
+async function follow($: EngineInterface) {
+  unfollow()
+  tokens.reset((await $.clock.now()) / 1000)
+  ticker = $.clock.every(TICK_MS, () => {
+    void tick($).catch(() => undefined)
+  })
+}
+
+function unfollow() {
+  ticker?.cancel()
+  ticker = undefined
+  lower = undefined
+}
+
+// Takes the queued tool calls (and a new level: `mood` if given, else the one
+// wanted) into the backdrop in one write, so one redraw.
 async function redraw($: EngineInterface, mood?: Mood) {
   pending?.cancel()
   pending = undefined
@@ -150,21 +201,26 @@ async function redraw($: EngineInterface, mood?: Mood) {
     return { queue: [] }
   })
   const was = await read($, stage)
-  const turned = mood !== undefined && mood !== was.mood
+  const want = mood ?? level
+  const turned = want !== undefined && want !== was.mood
   if (!turned && taken.length === 0) {
     return
   }
   await update($, stage, s => ({
-    mood: mood ?? s.mood,
+    mood: want ?? s.mood,
     bursts: [...s.bursts.filter(b => now - b.at < BURST_LIFE), ...taken.map(t => ({ ...t, at: now }))].slice(-MAX_BURSTS),
   }))
 }
 
-// Queues a tool call's streams and draws them now, or as soon as the last
-// redraw is GAP_MS old.
+// Queues a tool call's streams and draws them.
 async function spawn($: EngineInterface, color: string, size: number) {
   const seed = Math.floor(Math.random() * 2147483647)
   await update($, live, l => ({ queue: [...l.queue, { seed, color, size }].slice(-MAX_BURSTS) }))
+  await schedule($)
+}
+
+// Redraws now, or as soon as the last redraw is GAP_MS old.
+async function schedule($: EngineInterface) {
   if (pending !== undefined) {
     return
   }
@@ -194,11 +250,17 @@ async function chime($: EngineInterface) {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'matrix', description: 'Matrix rain theme: on | off | sound on | sound off' })
+    await $.command.register({
+      name: 'matrix',
+      description: 'Matrix rain theme: on | off | sound on | sound off | storm on | storm off',
+    })
     if (!(await isOff($))) {
       await $.theme.set(LOOK)
     }
     // A session that ended mid-turn may have stored busy.
+    running = false
+    level = 'idle'
+    unfollow()
     await redraw($, 'idle')
 
     return next(e)
@@ -207,7 +269,14 @@ export const register: Register = on => {
   // The main loop's turns only: a subagent's turn runs inside one of these.
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
+      running = true
+      level = 'busy'
       await redraw($, 'busy')
+      if (await stormy($)) {
+        await follow($)
+      } else {
+        unfollow()
+      }
     }
 
     return next(e)
@@ -215,6 +284,9 @@ export const register: Register = on => {
 
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) {
+      running = false
+      level = 'idle'
+      unfollow()
       await redraw($, 'idle')
       // Only a finished reply: not one you stopped, or one an error ended.
       if (e.reason === 'answer') {
@@ -236,8 +308,50 @@ export const register: Register = on => {
     // Where the hook had called next, next(e) replays its answer: nothing runs twice.
   }).catch(($, e, next) => next(e))
 
+  // Every model request, the main loop's and each subagent's: the meter counts
+  // what the model writes as it streams in. Each piece goes on as it came.
+  on('turn.step', async function* ($, e, next) {
+    const step = tokens.step()
+    try {
+      for await (const c of next(e)) {
+        if (c.kind === 'text' || c.kind === 'thinking') {
+          step.add(c.text.length)
+        } else if (c.kind === 'input') {
+          step.add(c.json.length)
+        } else if (c.kind === 'stop' && c.usage !== null) {
+          step.stop(c.usage.output_tokens)
+        }
+        yield c
+      }
+    } finally {
+      step.end()
+    }
+  })
+
   on('command.run', { command: 'matrix' }, async ($, e) => {
     const args = e.args.trim().split(/\s+/)
+    if (args[0] === 'storm') {
+      if (args[1] === 'off') {
+        await $.store.set('nostorm', true)
+        unfollow()
+        if (running) {
+          level = 'busy'
+          await schedule($)
+        }
+
+        return {
+          text: 'Matrix rain: the storm is off. While Claude works the rain falls at one pace. `/matrix storm on` brings it back.',
+        }
+      }
+      await $.store.delete('nostorm')
+      if (running && ticker === undefined && !(await isOff($))) {
+        await follow($)
+      }
+
+      return {
+        text: 'Matrix rain: the storm is on. While Claude works the rain follows the tokens it writes: light while it waits on a command or a job, a storm while it writes a lot.',
+      }
+    }
     if (args[0] === 'sound') {
       if (args[1] === 'off') {
         await $.store.set('mute', true)
@@ -250,6 +364,7 @@ export const register: Register = on => {
     }
     if (args[0] === 'off') {
       await $.store.set('off', true)
+      unfollow()
       await $.theme.clear()
 
       return { text: 'Matrix rain off, here and in new sessions. `/matrix on` brings it back.' }
@@ -272,7 +387,7 @@ export const register: Register = on => {
     return (
       <Svg
         source={scene(view, firstDrawn(s.bursts, now), now)}
-        alt={s.mood === 'busy' ? 'Green code raining fast down a black screen' : 'Green code drifting slowly down a black screen'}
+        alt={ALT[s.mood]}
       />
     )
   })

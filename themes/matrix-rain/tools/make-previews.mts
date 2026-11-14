@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import type { Burst, Mood } from '../types/index.d.ts'
-import { scene } from '../hooks/scene.ts'
+import { scene, start } from '../hooks/scene.ts'
 import type { View } from '../hooks/scene.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -24,7 +24,7 @@ const chrome = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/M
 mkdirSync(out, { recursive: true })
 
 const NOW = 1_000_000
-const view = (mood: Mood): View => ({ mood, from: mood, tR: NOW - 100, vR: 5000, prevTR: -Infinity, prevVR: 0 })
+const view = (mood: Mood): View => ({ ...start(mood, NOW - 100), vR: 5000 })
 
 // One burst per kind of tool, as the colour table in the README lists them.
 const TOOLS = ['#26e7ff', '#ff3df2', '#ffb21e', '#a77bff', '#ffe45c', '#4f8cff', '#effff4', '#ff3346']

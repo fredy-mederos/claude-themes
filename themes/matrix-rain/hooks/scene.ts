@@ -10,9 +10,12 @@ import type { Burst, Mood } from '../types'
 // window's own rain clock (`View`, kept by register.tsx): a redraw picks every
 // stream up where it was.
 
-// How much slower than busy the idle rain falls: idle, a stream takes from
-// about forty seconds to over two minutes to cross a laptop-sized window.
-export const K: Record<Mood, number> = { idle: 14, busy: 1 }
+// How much slower than busy each level falls. Idle, a stream takes from
+// about forty seconds to over two minutes to cross a laptop-sized window;
+// waiting, a turn that writes nothing (a long command, a job) falls a fifth
+// as fast as working, about three times as fast as idle; a storm, a quarter
+// faster than working.
+export const K: Record<Mood, number> = { idle: 14, wait: 5, busy: 1, storm: 0.8 }
 
 // Streams fall to this far below the top. A window shorter than this just
 // gets a longer pause before the stream comes round again.
@@ -21,11 +24,18 @@ const TRAVEL = 1800
 // How long a tool call's burst is kept: two passes of at most 6 s, and slack.
 export const BURST_LIFE = 20
 
+// A tier of streams past the first, as the window shows it. `on`: the rain
+// clock when it was last turned on (-Infinity: on from the start, every
+// column falling). `offs`: each time it was turned off while its streams may
+// still be finishing their fall: the wall second, the rain clock, the pace
+// it was falling at and its `on` then.
+export type Off = { t: number; v: number; k: number; on: number }
+export type Tier = { on?: number; offs: Off[] }
+
 // The rain clock as the window shows it: since wall second `tR` the rain has
 // fallen at `mood`'s speed, and at `tR` the clock read `vR` (busy seconds).
-// `from` is the mood before; `prevTR`/`prevVR` when that one began
-// (-Infinity when unknown).
-export type View = { mood: Mood; from: Mood; tR: number; vR: number; prevTR: number; prevVR: number }
+// `from` is the mood before (the same when the window has seen no change).
+export type View = { mood: Mood; from: Mood; tR: number; vR: number; tiers: Tier[] }
 
 export const virtual = (v: View, now: number) => v.vR + (now - v.tR) / K[v.mood]
 
@@ -94,7 +104,7 @@ const cells = (k: number) => {
   return `<g text-anchor="middle">${trail.join('')}${heads.join('')}</g>`
 }
 
-const CELLS: Record<Mood, string> = { idle: cells(K.idle), busy: cells(K.busy) }
+const CELLS: Record<Mood, string> = { idle: cells(K.idle), wait: cells(K.wait), busy: cells(K.busy), storm: cells(K.storm) }
 
 // ── Streams ─────────────────────────────────────────────────────────────
 type Shape = {
@@ -140,9 +150,42 @@ const columns = (seed: number, count: number): Column[] => {
   })
 }
 
-// Always falling, and the ones only a running turn adds.
-const CALM = columns(1999, 50)
-const STORM = columns(2003, 32)
+// Tiers of streams: the first always falls, a turn that is working adds the
+// second, a storm the third. The third is kept small: a storm is a busier
+// rain, not a flood, and the whole scene must stay under the app's limit.
+const TIER3 = 24
+const TIERS = [columns(1999, 50), columns(2003, 32), columns(2011, TIER3)]
+
+// How many tiers fall at each level.
+const ON: Record<Mood, number> = { idle: 1, wait: 1, busy: 2, storm: 3 }
+
+// The first view a window draws: the tiers of its level all falling.
+export const start = (mood: Mood, now: number): View => ({
+  mood,
+  from: mood,
+  tR: now,
+  vR: now / K[mood],
+  tiers: TIERS.map((_, i) => (i < ON[mood] ? { on: -Infinity, offs: [] } : { offs: [] })),
+})
+
+// The view once the level changes at `now`: the rain clock carries on where
+// it was, at the new speed; a tier turned on joins from the top, one turned
+// off finishes the pass it was on.
+export const shift = (was: View, mood: Mood, now: number): View => {
+  const v = virtual(was, now)
+  const tiers = was.tiers.map((t, i): Tier => {
+    const before = i < ON[was.mood]
+    const after = i < ON[mood]
+    const offs = t.offs.filter(o => now <= o.t + LONGEST * o.k)
+    if (before === after) {
+      return { on: t.on, offs }
+    }
+
+    return after ? { on: v, offs } : { offs: [...offs, { t: now, v, k: K[was.mood], on: t.on ?? v }] }
+  })
+
+  return { mood, from: was.mood, tR: now, vR: v, tiers }
+}
 
 const hex = (n: number) => Math.round(n).toString(16).padStart(2, '0')
 
@@ -208,7 +251,7 @@ const stream = (s: Shape, alpha: number, paint: Paint, fall: Fall) => {
   return (
     `<svg x="${s.x.toFixed(2)}%" width="1" height="1" overflow="visible">` +
     `<g class="${L.cls}" fill="${paint.body}" opacity="${alpha}" transform="translate(0 ${top})">` +
-    `<animateTransform attributeName="transform" type="translate" from="0 ${from.toFixed(0)}" to="0 ${TRAVEL}" dur="${fall.dur.toFixed(2)}s" begin="${fall.begin.toFixed(2)}s" repeatCount="${fall.repeat}"${freeze}/>` +
+    `<animateTransform attributeName="transform" type="translate" from="0 ${from.toFixed(0)}" to="0 ${TRAVEL}" dur="${fall.dur.toFixed(3)}s" begin="${fall.begin.toFixed(3)}s" repeatCount="${fall.repeat}"${freeze}/>` +
     `<text x="${xs.join(' ')}" y="${ys.join(' ')}" fill="${paint.trail}">${still}</text>` +
     changing +
     `<use href="#h${s.head}" y="${(n + 1) * L.cell}" fill="${paint.head}"/>` +
@@ -217,6 +260,10 @@ const stream = (s: Shape, alpha: number, paint: Paint, fall: Fall) => {
 }
 
 const periodOf = (c: Column) => c.period * LAYERS[c.layer].pace
+
+// The longest pass of any column, in busy seconds: no stream of a tier turned
+// off is still falling this long (times its pace) after.
+const LONGEST = Math.max(...TIERS.flat().map(periodOf))
 
 // Where a column is in its pass at rain-clock `v`, in busy seconds.
 const phaseAt = (c: Column, v: number) => {
@@ -232,39 +279,53 @@ const steady = (c: Column, v: number, k: number) =>
     repeat: 'indefinite',
   })
 
-// A turn's extra column, joining: it waits above the window until its pass
-// would next start from the top, so it never pops in part way down.
-const joining = (c: Column, view: View, now: number) => {
-  const p = periodOf(c)
+// The rain clock when a column of a tier turned on at `on` first starts a
+// pass from the top: until then it waits above the window, so it never pops
+// in part way down. -Infinity: it was falling from the start.
+const joinAt = (c: Column, on: number) => (on === -Infinity ? -Infinity : on + periodOf(c) - phaseAt(c, on))
 
-  return stream(c, LAYERS[c.layer].alpha, RAIN, {
-    dur: p,
-    begin: view.tR + (p - phaseAt(c, view.vR)) - now,
+// A column waiting to join: it starts from the top when the clock reaches `at`.
+const joining = (c: Column, at: number, view: View, now: number, k: number) =>
+  stream(c, LAYERS[c.layer].alpha, RAIN, {
+    dur: periodOf(c) * k,
+    begin: view.tR + (at - view.vR) * k - now,
     repeat: 'indefinite',
   })
-}
 
-// The same column after the turn: it finishes the pass it was on at busy
-// speed and is gone, rather than vanishing where it was.
-const leaving = (c: Column, view: View, now: number) => {
-  const p = periodOf(c)
-  // Not yet joined when the turn ended.
-  if (view.tR < view.prevTR + (p - phaseAt(c, view.prevVR))) {
+// A column after its tier turned off: it finishes the pass it was on at the
+// pace it had, and is gone, rather than vanishing where it was.
+const leaving = (c: Column, off: Off, now: number) => {
+  // Not yet joined when the tier turned off.
+  if (off.v < joinAt(c, off.on)) {
     return ''
   }
-  const ph = phaseAt(c, view.vR)
-  const left = p - ph
-  if (now > view.tR + left) {
+  const p = periodOf(c)
+  const ph = phaseAt(c, off.v)
+  const left = (p - ph) * off.k
+  if (now > off.t + left) {
     return ''
   }
   const top = topOf(c)
 
   return stream(c, LAYERS[c.layer].alpha, RAIN, {
     dur: left,
-    begin: view.tR - now,
+    begin: off.t - now,
     repeat: '1',
     from: top + (ph / p) * (TRAVEL - top),
   })
+}
+
+// One column as the window shows it: the end of any pass it was leaving on,
+// and, while its tier is on, falling or waiting to join.
+const column = (c: Column, tier: Tier, view: View, v: number, now: number) => {
+  const k = K[view.mood]
+  let out = tier.offs.map(o => leaving(c, o, now)).join('')
+  if (tier.on !== undefined) {
+    const at = joinAt(c, tier.on)
+    out += v >= at ? steady(c, v, k) : joining(c, at, view, now, k)
+  }
+
+  return out
 }
 
 // A tool call's streams: a handful in its colour, near and bright, falling
@@ -292,17 +353,18 @@ const burst = (b: Burst, now: number) => {
 
 // Idle is muted: dimmer, grey rain and no green light behind it. A turn brings
 // the green and the light up quickly; when it ends they fade out slowly.
-const OPACITY: Record<Mood, number> = { idle: 0.55, busy: 1 }
-const GLOW: Record<Mood, number> = { idle: 0, busy: 1 }
-const FADE: Record<Mood, number> = { idle: 3, busy: 1.2 }
+// Waiting, the rain stays green with the light half up.
+const OPACITY: Record<Mood, number> = { idle: 0.55, wait: 0.8, busy: 1, storm: 1 }
+const GLOW: Record<Mood, number> = { idle: 0, wait: 0.5, busy: 1, storm: 1 }
+const FADE: Record<Mood, number> = { idle: 3, wait: 2, busy: 1.2, storm: 1.2 }
 // A grey with a trace of the green in it, so idle still reads as the same rain.
-const BODY: Record<Mood, string> = { idle: '#93a89a', busy: GREEN }
-const HEAD: Record<Mood, string> = { idle: '#dce6df', busy: GREEN_HEAD }
+const BODY: Record<Mood, string> = { idle: '#93a89a', wait: GREEN, busy: GREEN, storm: GREEN }
+const HEAD: Record<Mood, string> = { idle: '#dce6df', wait: GREEN_HEAD, busy: GREEN_HEAD, storm: GREEN_HEAD }
 
 // An attribute easing from the last mood's value to this one's, from when the
-// window saw the change; nothing when the mood didn't change.
+// window saw the change; nothing when the value didn't change.
 const ease = (view: View, now: number, of: Record<Mood, number | string>, attribute = 'opacity') =>
-  view.from === view.mood
+  of[view.from] === of[view.mood]
     ? ''
     : `<animate attributeName="${attribute}" from="${of[view.from]}" to="${of[view.mood]}" dur="${FADE[view.mood]}s" begin="${(view.tR - now).toFixed(2)}s" fill="freeze"/>`
 
@@ -321,14 +383,8 @@ const rainPaint = (view: View, now: number) =>
   `</linearGradient>`
 
 export const scene = (view: View, bursts: Burst[], now: number): string => {
-  const k = K[view.mood]
   const v = virtual(view, now)
-  let rain = CALM.map(c => steady(c, v, k)).join('')
-  if (view.mood === 'busy') {
-    rain += STORM.map(c => (view.from === 'idle' ? joining(c, view, now) : steady(c, v, k))).join('')
-  } else if (view.from === 'busy') {
-    rain += STORM.map(c => leaving(c, view, now)).join('')
-  }
+  const rain = TIERS.map((tier, i) => tier.map(c => column(c, view.tiers[i] ?? { offs: [] }, view, v, now)).join('')).join('')
   // Newest first, until the app's 131,072-character limit is near.
   let drawn = ''
   const used: string[] = []

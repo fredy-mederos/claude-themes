@@ -6,7 +6,7 @@ Animated themes for the Claude desktop app. Each theme is its own plugin in `the
 
 | Theme | What it does |
 | --- | --- |
-| [Matrix Rain](themes/matrix-rain/) (`matrix-rain`) | Green code that drifts while idle, pours while Claude works, drops coloured streams on every tool call, has letters that change as they fall, and chimes when a reply ends. |
+| [Matrix Rain](themes/matrix-rain/) (`matrix-rain`) | Green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, has letters that change as they fall, and chimes when a reply ends. |
 
 ## Install a theme
 
