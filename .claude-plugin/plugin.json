@@ -1,0 +1,6 @@
+{
+  "name": "matrix-rain",
+  "version": "0.1.0",
+  "description": "Matrix rain theme: green code that drifts while idle, pours while Claude works, and drops coloured streams on every tool call. /matrix on|off.",
+  "types": "./types/index.d.ts"
+}
