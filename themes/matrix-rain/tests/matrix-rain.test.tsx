@@ -14,6 +14,8 @@ test('the backdrop is one slow Svg while idle', async ($, on) => {
   const svg = (await ui.find({ type: 'Svg' })) as any
   expect(svg).toBeDefined()
   expect(svg.props.alt).toMatch(/slowly/)
+  // Muted: the green light behind the rain is off.
+  expect(svg.props.source).toMatch(/fill="url\(#glow\)" opacity="0"/)
   expect(svg.props.source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
   expect(svg.props.source.length).toBeLessThan(131072)
   await ui.unmount()
@@ -30,14 +32,18 @@ test('a turn makes it pour, and a tool call drops streams in its colour', async 
   on('command.register', () => ({ value: { command: 'matrix' } }))
   on('theme.set', () => ({ value: { isDrawn: true, requestId: 'theme' } }))
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true } as any)
+  // The window shows the idle rain first, so the turn is a change it sees.
+  const ui = await $.ui.mount(BACKDROP)
+  await ui.find({ type: 'Svg' })
   await $.turn.start({ text: 'hi', turnId: 't1' } as any)
   // Past the gap since the turn's own redraw, so the call draws at once.
   ms += 5000
   await $.tool.call({ tool: 'Read', tool_use_id: 'u1', input: { file_path: '/x' } } as any)
 
-  const ui = await $.ui.mount(BACKDROP)
   const svg = (await ui.find({ type: 'Svg' })) as any
   expect(svg.props.alt).toMatch(/fast/)
+  // The light comes up as the turn starts.
+  expect(svg.props.source).toMatch(/fill="url\(#glow\)" opacity="1"><animate attributeName="opacity" from="0" to="1"/)
   expect(svg.props.source).toMatch(/#26e7ff/)
   // The letters that change: shared cells, placed down the streams.
   expect(svg.props.source).toMatch(/<use href="#f\d+"/)

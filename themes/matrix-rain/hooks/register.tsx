@@ -82,9 +82,12 @@ const { theme } = makeColors({
         'surface-1': '#06110a',
         'surface-2': '#09160d',
         'surface-3': '#0b1a10',
-        'text-primary': '#d9ffe3',
-        'text-secondary': '#a6e8b7',
-        'text-muted': '#78bd8a',
+        // Nearly neutral, with a trace of green: a strong mint glows on
+        // black and reads soft. Kept this bright on purpose: the app draws
+        // its faded labels as this colour at about 55% opacity.
+        'text-primary': '#e6f6eb',
+        'text-secondary': '#bfdcc8',
+        'text-muted': '#9cc0a6',
       },
     },
   },
@@ -94,7 +97,9 @@ const { theme } = makeColors({
 
 const LOOK: ThemeSetArgs = {
   colors: theme,
-  backdrop: { scene: SCENE, glass: { blur: 10, tint: '#020805', opacity: 0.74 } },
+  // The panel behind the chat: dense enough that streams passing behind the
+  // text are a soft glow, not moving noise.
+  backdrop: { scene: SCENE, glass: { blur: 14, tint: '#020805', opacity: 0.84 } },
 }
 
 const RED = '#ff3346'

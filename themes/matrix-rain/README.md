@@ -12,8 +12,8 @@ A theme for the Claude desktop app: green code raining down behind the conversat
 
 The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`. In the app, the chat sits on a frosted panel down the middle, so the rain shows most in the margins.
 
-- **Idle:** about fifty streams drift down very slowly, in three depths (small and dim at the back, large and bright at the front).
-- **While Claude works:** the rain speeds up about seven times and more streams join from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
+- **Idle:** muted. About fifty dim streams drift down very slowly, in three depths (small and faint at the back, larger at the front), on plain black.
+- **While Claude works:** a green light comes up behind the rain, the rain brightens and speeds up about fourteen times, and more streams join from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
 - **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles.
 - **Tool calls:** every tool call drops a handful of fast, bright streams in a colour for the kind of work:
 
@@ -29,7 +29,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   | Red | a tool call that failed |
 
 - **A chime** when Claude finishes a reply: a short cascade of digital blips over a low hum. Not played for a reply you stopped.
-- A near-black green palette for dark mode, with a frosted panel behind the chat so text stays readable. No status bar or band.
+- A near-black green palette for dark mode, with soft, nearly white text and a dense frosted panel behind the chat, so the rain glows behind the conversation without crossing the words. No status bar or band.
 
 ## Install
 

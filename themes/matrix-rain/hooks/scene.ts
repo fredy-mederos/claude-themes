@@ -10,8 +10,9 @@ import type { Burst, Mood } from '../types'
 // window's own rain clock (`View`, kept by register.tsx): a redraw picks every
 // stream up where it was.
 
-// How much slower than busy the idle rain falls.
-export const K: Record<Mood, number> = { idle: 7, busy: 1 }
+// How much slower than busy the idle rain falls: idle, a stream takes from
+// about forty seconds to over two minutes to cross a laptop-sized window.
+export const K: Record<Mood, number> = { idle: 14, busy: 1 }
 
 // Streams fall to this far below the top. A window shorter than this just
 // gets a longer pause before the stream comes round again.
@@ -274,7 +275,18 @@ const burst = (b: Burst, now: number) => {
   return out
 }
 
-const OPACITY: Record<Mood, number> = { idle: 0.75, busy: 1 }
+// Idle is muted: dimmer rain and no green light behind it. A turn brings the
+// light up quickly; when it ends the light fades out slowly.
+const OPACITY: Record<Mood, number> = { idle: 0.55, busy: 1 }
+const GLOW: Record<Mood, number> = { idle: 0, busy: 1 }
+const FADE: Record<Mood, number> = { idle: 3, busy: 1.2 }
+
+// An attribute easing from the last mood's value to this one's, from when the
+// window saw the change; nothing when the mood didn't change.
+const ease = (view: View, now: number, of: Record<Mood, number>) =>
+  view.from === view.mood
+    ? ''
+    : `<animate attributeName="opacity" from="${of[view.from]}" to="${of[view.mood]}" dur="${FADE[view.mood]}s" begin="${(view.tR - now).toFixed(2)}s" fill="freeze"/>`
 
 export const scene = (view: View, bursts: Burst[], now: number): string => {
   const k = K[view.mood]
@@ -285,11 +297,6 @@ export const scene = (view: View, bursts: Burst[], now: number): string => {
   } else if (view.from === 'busy') {
     rain += STORM.map(c => leaving(c, view, now)).join('')
   }
-  // The whole rain eases to its new brightness instead of stepping.
-  const ease =
-    view.from === view.mood
-      ? ''
-      : `<animate attributeName="opacity" from="${OPACITY[view.from]}" to="${OPACITY[view.mood]}" dur="1.2s" begin="${(view.tR - now).toFixed(2)}s" fill="freeze"/>`
   // Newest first, until the app's 131,072-character limit is near.
   let drawn = ''
   const used: string[] = []
@@ -315,8 +322,8 @@ ${colors.map(gradient).join('\n')}
 ${CELLS}
 </defs>
 <rect width="100%" height="100%" fill="#010603"/>
-<rect width="100%" height="100%" fill="url(#glow)"/>
-<g opacity="${OPACITY[view.mood]}">${ease}${rain}</g>
+<rect width="100%" height="100%" fill="url(#glow)" opacity="${GLOW[view.mood]}">${ease(view, now, GLOW)}</rect>
+<g opacity="${OPACITY[view.mood]}">${ease(view, now, OPACITY)}${rain}</g>
 <g>${drawn}</g>
 </svg>`
 }
