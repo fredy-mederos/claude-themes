@@ -10,6 +10,12 @@
       "source": "./themes/matrix-rain",
       "version": "0.2.2",
       "description": "Matrix rain: green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, and chimes when a reply ends."
+    },
+    {
+      "name": "clockworks",
+      "source": "./themes/clockworks",
+      "version": "0.1.0",
+      "description": "Clockworks: an iron gear train that stands still and muted while idle, turns while Claude works, spins faster when it writes a lot, and rings a small bell when a reply ends."
     }
   ]
 }
