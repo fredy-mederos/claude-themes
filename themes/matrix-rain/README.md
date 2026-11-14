@@ -2,6 +2,16 @@
 
 A theme for the Claude desktop app: green code raining down behind the conversation. Part of [Claude themes](../../README.md).
 
+<img src="screenshots/live.svg" alt="Matrix Rain falling, with coloured tool-call streams among the green" width="100%">
+
+| While Claude waits | While Claude works |
+| --- | --- |
+| <img src="screenshots/idle.png" alt="Sparse, slow green rain on black"> | <img src="screenshots/working.png" alt="Dense green rain with cyan, magenta, amber, violet, gold, blue, white and red streams"> |
+
+<img src="screenshots/closeup.png" alt="Close-up of the falling glyphs, bright heads at the bottom of each trail" width="100%">
+
+The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`. In the app, the chat sits on a frosted panel down the middle, so the rain shows most in the margins.
+
 - **Idle:** about fifty streams drift down very slowly, in three depths (small and dim at the back, large and bright at the front).
 - **While Claude works:** the rain speeds up about seven times and more streams join from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
 - **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles.
@@ -57,4 +67,5 @@ The rain shows in the Claude desktop app, which draws a mod's backdrop. In a new
 - `hooks/register.tsx`: the look, the reactions to turns and tool calls, the chime and `/matrix`.
 - `hooks/scene.ts`: the animated SVG backdrop (SMIL only, sized in window pixels).
 - `hooks/make-colors.js`: the palette builder from Claude Code's plugin-authoring kit.
+- `screenshots/`: the README pictures; `tools/make-previews.mts` remakes them (needs Node 23 or later and Chrome).
 - `tests/`: run with `claude plugin test .`
