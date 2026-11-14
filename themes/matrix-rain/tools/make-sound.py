@@ -3,9 +3,9 @@ finishes a reply. Pure standard library; run it again to remake the file:
 
     python3 tools/make-sound.py
 
-"Short pulse": one low thump whose pitch drops, a dark A minor nine chord of
+"Deep pulse": one low thump whose pitch drops, a dark A minor nine chord of
 detuned saws that swells in and breathes out, and a faint high shimmer.
-About a second, mono, 44.1 kHz. The thump sits at 50-95 Hz with overtones,
+About 1.7 seconds, mono, 44.1 kHz. The thump sits at 50-95 Hz with overtones,
 so laptop speakers and headphones carry it; a phone speaker mostly plays the
 chord.
 """
@@ -15,7 +15,7 @@ import struct
 import wave
 
 RATE = 44100
-LENGTH = 1.05
+LENGTH = 1.7
 TAU = 2 * math.pi
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sounds', 'turn-end.wav')
 
@@ -44,23 +44,23 @@ def lowpass(xs, cutoff):
 
 
 # 1. The thump: a sine falling from 95 to 50 Hz, with its octave, gone in
-#    about half a second.
+#    under a second.
 def thump(t):
     ph = TAU * (50 * t + 45 * (1 - math.exp(-t * 30)) / 30)
-    return 0.5 * math.exp(-t * 10) * (math.sin(ph) + 0.35 * math.sin(2 * ph))
+    return 0.55 * math.exp(-t * 7) * (math.sin(ph) + 0.35 * math.sin(2 * ph))
 
 
 add(buf, 0.0, 0.9, thump)
 
 # 2. The chord: A3 C4 E4 G4 B4, two saws each, slightly detuned, swelling in
-#    over 60 ms and breathing out by 0.95 s, darkened by two low-passes.
+#    over 120 ms and breathing out by 1.6 s, darkened by two low-passes.
 pad = [0.0] * n
 for st in (-12, -9, -5, -2, 2):
     for det in (-0.004, 0.004):
         f = note(st) * (1 + det)
 
         def saw(t, f=f):
-            env = min(1.0, t / 0.06) * (0.5 + 0.5 * math.cos(math.pi * min(t / 0.95, 1.0)))
+            env = min(1.0, t / 0.12) * (0.5 + 0.5 * math.cos(math.pi * min(t / 1.6, 1.0)))
             return 0.035 * env * (2 * ((f * t) % 1.0) - 1)
 
         add(pad, 0.02, LENGTH, saw)
@@ -70,7 +70,7 @@ buf = [x + y for x, y in zip(buf, pad)]
 
 # 3. The shimmer: a quiet A6 that fades with the chord.
 def shimmer(t):
-    return 0.03 * min(1.0, t * 20) * math.exp(-t * 5) * math.sin(TAU * note(24) * t)
+    return 0.03 * min(1.0, t * 20) * math.exp(-t * 3) * math.sin(TAU * note(24) * t)
 
 
 add(buf, 0.05, 1.4, shimmer)
