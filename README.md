@@ -11,7 +11,7 @@ Animated themes for the Claude desktop app. Each theme is its own plugin in `the
 At the prompt of a Claude Code terminal session:
 
 ```
-/plugin install matrix-rain --marketplace fredy-mederos/matrix_claude_theme
+/plugin install matrix-rain --marketplace fredy-mederos/claude-themes
 ```
 
 Answer `y` to add the marketplace, then pick a scope (user scope puts it in every session).
@@ -19,10 +19,10 @@ Answer `y` to add the marketplace, then pick a scope (user scope puts it in ever
 From a shell:
 
 ```bash
-claude plugin install matrix-rain --marketplace fredy-mederos/matrix_claude_theme
+claude plugin install matrix-rain --marketplace fredy-mederos/claude-themes
 ```
 
-In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `fredy-mederos/matrix_claude_theme`, then **Add plugin**.
+In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `fredy-mederos/claude-themes`, then **Add plugin**.
 
 Swap `matrix-rain` for any theme's name in the table above.
 
