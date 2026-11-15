@@ -1,4 +1,4 @@
-import type { On } from 'claude-code'
+import type { On, ThemeSetArgs } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
@@ -45,12 +45,18 @@ const streams = (source: string) => source.match(/fill="url\(#rain\)"/g)?.length
 const session = async ($: Engine, on: On, store: Record<string, unknown> = {}) => {
   const clock = mock.clock(on, { now: 2_000_000 })
   mock.store(on, store)
+  // Every look the theme sets, in order.
+  const sets: ThemeSetArgs[] = []
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('turn.start', (_, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }) as any)
   on('tool.call', () => ({ result: 'ok' }) as any)
   on('command.register', () => ({ value: { command: 'matrix' } }))
-  on('theme.set', () => ({ value: { isDrawn: true, requestId: 'theme' } }))
+  on('theme.set', (_, e) => {
+    sets.push(e)
+
+    return { value: { isDrawn: true, requestId: 'theme' } }
+  })
   on('audio.play', () => ({ value: undefined }) as any)
   const reply = { chars: 0, tokens: 0 }
   on('turn.step', async function* (_, e) {
@@ -81,7 +87,7 @@ const session = async ($: Engine, on: On, store: Record<string, unknown> = {}) =
   }
   const command = (args: string) => $.command.run({ command: 'matrix', args } as any)
 
-  return { clock, ui, svg, write, command }
+  return { clock, ui, svg, write, command, sets }
 }
 
 test('a turn makes it pour, and a tool call drops streams in its colour', async ($, on) => {
@@ -259,4 +265,73 @@ test('a finished reply plays the chime, a stopped one does not', async ($, on) =
   expect(played.length).toBe(0)
   await $.turn.complete({ turnId: 't2', reason: 'answer' } as any)
   expect(played.length).toBe(1)
+})
+
+// The backdrop as the app asks for it once the theme was set light.
+const LIGHT_BACKDROP = { ...BACKDROP, props: { ...BACKDROP.props, overrideColorScheme: 'light' } }
+
+const drawLight = async ($: Engine) => {
+  const ui = await $.ui.mount(LIGHT_BACKDROP)
+  const props = ((await ui.find({ type: 'Svg' })) as any).props as { alt: string; source: string }
+  await ui.unmount()
+
+  return props
+}
+
+test('dark by default, with colours for both of the app\'s modes', async ($, on) => {
+  const { ui, svg, sets } = await session($, on)
+  const look = sets.at(-1)
+  expect(look?.overrideColorScheme).toBe('dark')
+  expect(Object.keys(look?.colors?.inputs ?? {}).sort()).toEqual(['dark', 'light'])
+  expect(look?.colors?.codeTheme).toEqual({ light: 'vitesse-light', dark: 'vitesse-black' })
+  // The panel takes the app's own colour, so it suits whichever mode the app paints.
+  expect(look?.backdrop).toEqual({ scene: 'matrix-rain', glass: { blur: 14, opacity: 0.84 } })
+  const { alt, source } = await svg()
+  expect(alt).toMatch(/black screen/)
+  expect(source).toMatch(/<rect width="100%" height="100%" fill="#010603"\/>/)
+  await ui.unmount()
+})
+
+test('/matrix light makes it pale paper, and /matrix dark brings back the black', async ($, on) => {
+  const { ui, command, sets } = await session($, on)
+  expect((await command('light')).text).toMatch(/light.*pale paper.*set it to Light/)
+  expect(sets.at(-1)?.overrideColorScheme).toBe('light')
+  await ui.unmount()
+  const { alt, source } = await drawLight($)
+  expect(alt).toMatch(/slowly down a pale screen/)
+  // Pale paper, and muted grey-green rain while idle.
+  expect(source).toMatch(/<rect width="100%" height="100%" fill="#e6f0e8"\/>/)
+  expect(source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#62776a"/)
+  expect(source).not.toMatch(/#010603|#93a89a/)
+  expect(source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
+
+  expect((await command('dark')).text).toMatch(/dark.*set it to Dark/)
+  expect(sets.at(-1)?.overrideColorScheme).toBe('dark')
+})
+
+test('a session started light is light, and its turns pour deep green with tools in paper colours', async ($, on) => {
+  const { clock, ui, write, sets } = await session($, on, { light: true })
+  expect(sets[0]?.overrideColorScheme).toBe('light')
+  await $.turn.start({ text: 'hi', turnId: 't1' } as any)
+  await write(700, 200)
+  await clock.advance(5000)
+  await $.tool.call({ tool: 'Read', tool_use_id: 'u1', input: { file_path: '/x' } } as any)
+  await ui.unmount()
+  const { alt, source } = await drawLight($)
+  expect(alt).toMatch(/fast down a pale screen/)
+  expect(source).toMatch(/attributeName="stop-color" from="#62776a" to="#0b8a3f"/)
+  // A read is cyan, deep enough to read on paper.
+  expect(source).toMatch(/#0086a3/)
+  expect(source).not.toMatch(/#26e7ff/)
+  expect(source.length).toBeLessThan(131072)
+})
+
+test('a look chosen while the theme is off shows once it is on', async ($, on) => {
+  const { ui, command, sets } = await session($, on, { off: true })
+  expect(sets.length).toBe(0)
+  expect((await command('light')).text).toMatch(/once you turn it on/)
+  expect(sets.length).toBe(0)
+  await command('on')
+  expect(sets.at(-1)?.overrideColorScheme).toBe('light')
+  await ui.unmount()
 })

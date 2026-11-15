@@ -1,6 +1,6 @@
 {
   "name": "matrix-rain",
-  "version": "0.2.2",
-  "description": "Matrix rain theme: green code that drifts while idle, pours while Claude works, storms when it writes a lot, and drops coloured streams on every tool call. /matrix on|off, /matrix storm on|off.",
+  "version": "0.3.0",
+  "description": "Matrix rain theme: green code that drifts while idle, pours while Claude works, storms when it writes a lot, and drops coloured streams on every tool call. On black, or on pale paper with /matrix light. /matrix on|off, /matrix light|dark, /matrix storm on|off.",
   "types": "./types/index.d.ts"
 }

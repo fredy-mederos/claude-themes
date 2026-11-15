@@ -1,18 +1,19 @@
 # Matrix Rain
 
-A theme for the Claude desktop app: green code raining down behind the conversation. Part of [Claude themes](../../README.md).
+A theme for the Claude desktop app: green code raining down behind the conversation, on black or, with `/matrix light`, on pale paper. Part of [Claude themes](../../README.md).
 
 <img src="screenshots/live.svg" alt="Matrix Rain falling, with coloured tool-call streams among the green" width="100%">
 
 | While Claude waits | While Claude works |
 | --- | --- |
 | <img src="screenshots/idle.png" alt="Sparse, slow green rain on black"> | <img src="screenshots/working.png" alt="Dense green rain with cyan, magenta, amber, violet, gold, blue, white and red streams"> |
+| <img src="screenshots/light-idle.png" alt="Sparse, slow grey-green rain on pale paper"> | <img src="screenshots/light-working.png" alt="Dense deep green rain on pale paper with cyan, magenta, amber, violet, gold, blue, ink and red streams"> |
 
 <img src="screenshots/closeup.png" alt="Close-up of the falling glyphs, bright heads at the bottom of each trail" width="100%">
 
 The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`. In the app, the chat sits on a frosted panel down the middle, so the rain shows most in the margins.
 
-- **Idle:** muted. About fifty dim, grey streams drift down very slowly, in three depths (small and faint at the back, larger at the front), on plain black.
+- **Idle:** muted. About fifty dim, grey streams drift down very slowly, in three depths (small and faint at the back, larger at the front), on plain black (pale paper in the light look).
 - **While Claude works:** the rain turns green, a green light comes up behind it, and it brightens and speeds up about fourteen times, with more streams joining from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
 - **The storm** (on by default): while Claude works, the rain follows the tokens it writes, counted as they stream in from the main chat and from every subagent:
 
@@ -23,6 +24,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   | Storm | Claude writes a lot: two or more subagents at once, or a fast model writing a big file | About a hundred streams, a quarter faster than working |
 
   Only what Claude writes counts (its replies, its thinking, what it passes to tools, such as the code of an edit), not the conversation that goes with every request. Idle stays as it is. Each change is smooth: new streams join from the top, and streams that leave finish their fall. With `/matrix storm off`, a turn keeps the one working pace.
+- **Two looks:** dark, the default: phosphor green on black, each stream's head the brightest letter, a green light coming up behind while Claude works. Light (`/matrix light`): deep green ink on pale paper, each head the darkest letter, a soft green wash behind while Claude works. Everything else is the same in both: the levels, the storm, the changing letters, the tool calls and the chime.
 - **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles. They change at the rain's own pace: slowly while idle, fast while Claude works.
 - **Tool calls:** every tool call drops a handful of fast, bright streams in a colour for the kind of work:
 
@@ -34,11 +36,13 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   | Violet | web and browser tools |
   | Gold | Agent |
   | Blue | other MCP tools |
-  | White | everything else |
+  | White (ink in the light look) | everything else |
   | Red | a tool call that failed |
 
+  The light look paints each in a deeper shade, so it reads on paper.
+
 - **A chime** when Claude finishes a reply: a deep pulse, one low thump and a dark chord that breathes out, under two seconds long. Not played for a reply you stopped.
-- A near-black green palette for dark mode, with soft, nearly white text and a dense frosted panel behind the chat, so the rain glows behind the conversation without crossing the words. Code blocks use the `vitesse-black` code theme: pure black, with soft teal and green syntax. Diffs and git states take vitesse-black's colours too: green for added lines, red for removed, blue for modified. No status bar or band.
+- A palette for each of the app's modes. Dark: near-black green, with soft, nearly white text; code blocks in the `vitesse-black` code theme, pure black with soft teal and green syntax. Light: pale green-tinted paper with nearly black green text; code blocks in `vitesse-light`. Diffs and git states take each code theme's colours: green for added lines, red for removed, blue for modified. A dense frosted panel sits behind the chat, so the rain shows behind the conversation without crossing the words. No status bar or band.
 
 ## Install
 
@@ -74,10 +78,13 @@ Then restart the app to load the new version.
 ## Commands
 
 - `/matrix off` turns the theme off, here and in new sessions. `/matrix on` brings it back.
+- `/matrix light` makes the rain deep green on pale paper, here and in new sessions. `/matrix dark` brings back green on black, the default.
 - `/matrix sound off` silences the chime. `/matrix sound on` brings it back.
 - `/matrix storm off` keeps the rain at one pace while Claude works, whatever it writes. `/matrix storm on` brings back the waiting, working and storm levels.
 
 ## Good to know
+
+- A theme isn't told whether the app is in light or dark mode, so the rain doesn't switch by itself: choose its look with `/matrix light` or `/matrix dark`. The theme asks for that mode, but the desktop app keeps its own appearance setting for now, so set it to match (Light for `/matrix light`). If they differ, the chat stays readable: its panel takes the app's own colour for the mode it's in, and the theme gives its colours for both modes.
 
 - The app reloads the backdrop on each redraw: when a turn starts or ends, when the rain changes level, and at most every 3 seconds while tools run. Each stream carries on from where it was.
 - Resizing the window doesn't redraw the rain: the app asks again at each new size, and the theme hands back the same drawing. If the app still drops the backdrop while resizing, the theme draws it anew every 20 seconds, so the rain comes back on its own.
@@ -91,5 +98,5 @@ Then restart the app to load the new version.
 - `hooks/scene.ts`: the animated SVG backdrop (SMIL only, sized in window pixels).
 - `hooks/meter.ts`: the token meter behind the storm, and the levels it picks.
 - `hooks/make-colors.js`: the palette builder from Claude Code's plugin-authoring kit.
-- `screenshots/`: the README pictures; `tools/make-previews.mts` remakes them (needs Node 23 or later and Chrome).
+- `screenshots/`: the README pictures, dark and light; `tools/make-previews.mts` remakes them (needs Node 23 or later and Chrome).
 - `tests/`: run with `claude plugin test .`

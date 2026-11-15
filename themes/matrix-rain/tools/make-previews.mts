@@ -4,6 +4,7 @@
 //   idle.png      the slow rain while Claude waits
 //   working.png   the fast rain during a reply, with tool-call streams
 //   closeup.png   the same rain in a smaller window at twice the pixels
+//   light-idle.png, light-working.png   the same two in the light look
 //
 // Run from the theme's folder: node tools/make-previews.mts
 // The stills come from headless Chrome (CHROME overrides its path) with a
@@ -15,7 +16,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import type { Burst, Mood } from '../types/index.d.ts'
-import { scene, start } from '../hooks/scene.ts'
+import { scene, start, TOOL } from '../hooks/scene.ts'
 import type { View } from '../hooks/scene.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -27,8 +28,7 @@ const NOW = 1_000_000
 const view = (mood: Mood): View => ({ ...start(mood, NOW - 100), vR: 5000 })
 
 // One burst per kind of tool, as the colour table in the README lists them.
-const TOOLS = ['#26e7ff', '#ff3df2', '#ffb21e', '#a77bff', '#ffe45c', '#4f8cff', '#effff4', '#ff3346']
-const bursts: Burst[] = TOOLS.map((color, i) => ({ seed: 4100 + i * 97, color, size: 4, at: NOW - 0.4 - i * 0.35 }))
+const bursts: Burst[] = Object.values(TOOL).map((color, i) => ({ seed: 4100 + i * 97, color, size: 4, at: NOW - 0.4 - i * 0.35 }))
 
 // The app draws the scene to fill the window; as a file it needs a size.
 const sized = (svg: string, w: number, h: number) =>
@@ -60,6 +60,8 @@ try {
   shoot('idle', scene(view('idle'), [], NOW), 1600, 900)
   shoot('working', scene(view('busy'), bursts, NOW), 1600, 900)
   shoot('closeup', scene(view('busy'), bursts, NOW), 800, 450, 2)
+  shoot('light-idle', scene(view('idle'), [], NOW, 'light'), 1600, 900)
+  shoot('light-working', scene(view('busy'), bursts, NOW, 'light'), 1600, 900)
 } finally {
   rmSync(work, { recursive: true, force: true })
 }

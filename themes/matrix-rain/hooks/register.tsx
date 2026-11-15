@@ -1,10 +1,10 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ThemeSetArgs, Timer } from 'claude-code'
 
-import type { Burst, Live, Mood, Seed, Stage } from '../types'
+import type { Burst, Live, Mood, Scheme, Seed, Stage } from '../types'
 import { makeColors } from './make-colors.js'
 import { levelFor, meter, RANK } from './meter'
-import { BURST_LIFE, scene, shift, start } from './scene'
+import { BURST_LIFE, scene, shift, start, TOOL } from './scene'
 import type { View } from './scene'
 
 // Matrix rain: green code falling behind the conversation. Slow, nearly still
@@ -14,7 +14,9 @@ import type { View } from './scene'
 // With the storm on, a running turn's rain follows the tokens the model
 // writes: light while it waits on a command or a job, a storm while it writes
 // a lot. A short digital chime when a reply ends. No band and no status line,
-// on purpose. /matrix on|off, /matrix sound on|off, /matrix storm on|off.
+// on purpose. Dark by default (green on black); /matrix light makes it deep
+// green rain on pale paper. /matrix on|off, /matrix light|dark,
+// /matrix sound on|off, /matrix storm on|off.
 
 const SCENE = 'matrix-rain'
 
@@ -50,7 +52,7 @@ let drawn: { key: string; source: string; alt: string } | undefined
 const HEAL_MS = 20_000
 let healer: Timer | undefined
 
-const keyOf = (s: Stage) => `${s.mood}:${s.bursts.map(b => b.seed).join(',')}`
+const keyOf = (s: Stage, look: Scheme) => `${look}:${s.mood}:${s.bursts.map(b => b.seed).join(',')}`
 
 function settle(mood: Mood, now: number): View {
   shown = shown === undefined ? start(mood, now) : shown.mood === mood ? shown : shift(shown, mood, now)
@@ -73,9 +75,36 @@ function firstDrawn(bursts: Burst[], now: number): Burst[] {
   })
 }
 
+// Both modes, whichever look is chosen: the desktop app paints the half for
+// the mode it is in, whatever the look asks for.
 const { theme } = makeColors({
   label: 'Matrix Rain',
   roles: { accent: '#2bff88', danger: '#ff4f64', success: '#a8ff3e', warning: '#ffb21e', pro: '#3fe0ff' },
+  // Pale paper with a trace of the rain's green, and nearly black green ink.
+  light: {
+    gray: {
+      anchors: {
+        'surface-0': '#e3eee6',
+        'surface-1': '#ebf4ed',
+        'surface-2': '#f4f9f5',
+        'surface-3': '#f4f9f5',
+        'text-primary': '#0a1f12',
+        'text-secondary': '#26402f',
+        'text-muted': '#45604d',
+      },
+    },
+    // Diffs and git states in vitesse-light's colours, to match its code
+    // blocks; removed and draft a little darker, as their labels need.
+    git: {
+      added: '#1e754f',
+      removed: '#a04e4e',
+      modified: '#296aa3',
+      merged: '#a13865',
+      closed: '#a04e4e',
+      conflicting: '#a65e2b',
+      draft: '#5d6a5e',
+    },
+  },
   dark: {
     gray: {
       anchors: {
@@ -104,51 +133,68 @@ const { theme } = makeColors({
       draft: '#8e9b8e',
     },
   },
-  only: 'dark',
   // The code theme paints the code blocks' background too: vitesse-black's is
   // pure black, with soft teal and green syntax (github-dark's #24292e read
-  // as a light grey box on this page).
-  codeTheme: { dark: 'vitesse-black' },
+  // as a light grey box on this page). vitesse-light is its daytime pair.
+  codeTheme: { light: 'vitesse-light', dark: 'vitesse-black' },
 })
 
-const LOOK: ThemeSetArgs = {
+// The look asks surfaces for its mode, and the backdrop draws it. The panel
+// behind the chat is dense enough that streams passing behind the text are a
+// soft glow, not moving noise. It takes the app's own panel colour, which
+// follows the mode the app paints: a tint of one look's would put dark text
+// on a dark panel wherever the app is in the other mode.
+const lookOf = (scheme: Scheme): ThemeSetArgs => ({
   colors: theme,
-  // The panel behind the chat: dense enough that streams passing behind the
-  // text are a soft glow, not moving noise.
-  backdrop: { scene: SCENE, glass: { blur: 14, tint: '#020805', opacity: 0.84 } },
+  overrideColorScheme: scheme,
+  backdrop: { scene: SCENE, glass: { blur: 14, opacity: 0.84 } },
+})
+
+// The look chosen with /matrix light|dark, kept across sessions; read again
+// at each session start.
+let scheme: Scheme = 'dark'
+
+async function schemeOf($: EngineInterface): Promise<Scheme> {
+  return (await $.store.get('light')) === true ? 'light' : 'dark'
 }
 
-const RED = '#ff3346'
-
-const ALT: Record<Mood, string> = {
-  idle: 'Green code drifting slowly down a black screen',
-  wait: 'Green code falling steadily down a black screen',
-  busy: 'Green code raining fast down a black screen',
-  storm: 'Green code pouring down a black screen in a storm',
+const ALT: Record<Scheme, Record<Mood, string>> = {
+  dark: {
+    idle: 'Green code drifting slowly down a black screen',
+    wait: 'Green code falling steadily down a black screen',
+    busy: 'Green code raining fast down a black screen',
+    storm: 'Green code pouring down a black screen in a storm',
+  },
+  light: {
+    idle: 'Grey-green code drifting slowly down a pale screen',
+    wait: 'Green code falling steadily down a pale screen',
+    busy: 'Green code raining fast down a pale screen',
+    storm: 'Green code pouring down a pale screen in a storm',
+  },
 }
 
 // A tool's colour, by what kind of work it is.
 const hue = (tool: string): string => {
   if (/^(Read|Grep|Glob|LS|NotebookRead)$/.test(tool)) {
-    return '#26e7ff'
+    return TOOL.read
   }
   if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) {
-    return '#ff3df2'
+    return TOOL.edit
   }
   if (/^(Bash|BashOutput|KillShell|Monitor|TaskStop)$/.test(tool)) {
-    return '#ffb21e'
+    return TOOL.shell
   }
   if (/^(WebFetch|WebSearch)$/.test(tool) || /Browser|chrome/.test(tool)) {
-    return '#a77bff'
+    return TOOL.web
   }
   if (/^(Agent|Task|Workflow|SendMessage)$/.test(tool)) {
-    return '#ffe45c'
+    return TOOL.agent
   }
   if (tool.startsWith('mcp__')) {
-    return '#4f8cff'
+    return TOOL.mcp
   }
 
-  return '#effff4'
+  return TOOL.other
 }
 
 // The module's own: they start over on a reload, which only means one early redraw.
@@ -277,10 +323,11 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'matrix',
-      description: 'Matrix rain theme: on | off | sound on | sound off | storm on | storm off',
+      description: 'Matrix rain theme: on | off | light | dark | sound on | sound off | storm on | storm off',
     })
+    scheme = await schemeOf($)
     if (!(await isOff($))) {
-      await $.theme.set(LOOK)
+      await $.theme.set(lookOf(scheme))
     }
     healer?.cancel()
     healer = $.clock.every(HEAL_MS, () => {
@@ -331,7 +378,7 @@ export const register: Register = on => {
     await spawn($, hue(e.tool), e.tool === 'Agent' ? 6 : 4)
     const ran = await next(e)
     if (ran.deny === undefined && ran.isError === true) {
-      await spawn($, RED, 6)
+      await spawn($, TOOL.failed, 6)
     }
 
     return ran
@@ -392,6 +439,27 @@ export const register: Register = on => {
 
       return { text: 'Matrix rain: the end-of-reply chime is on.' }
     }
+    if (args[0] === 'light' || args[0] === 'dark') {
+      scheme = args[0]
+      if (scheme === 'light') {
+        await $.store.set('light', true)
+      } else {
+        await $.store.delete('light')
+      }
+      const told =
+        scheme === 'light'
+          ? 'Matrix rain: light. Deep green rain on pale paper. `/matrix dark` brings back the black screen.'
+          : 'Matrix rain: dark. Green rain on black. `/matrix light` makes it pale paper.'
+      if (await isOff($)) {
+        return { text: `${told} It shows once you turn it on with \`/matrix on\`.` }
+      }
+      await $.theme.set(lookOf(scheme))
+      $.ui.invalidate('ui.render')
+
+      return {
+        text: `${told} The desktop app keeps its own appearance setting, so set it to ${scheme === 'light' ? 'Light' : 'Dark'} to match.`,
+      }
+    }
     if (args[0] === 'off') {
       await $.store.set('off', true)
       unfollow()
@@ -400,7 +468,7 @@ export const register: Register = on => {
       return { text: 'Matrix rain off, here and in new sessions. `/matrix on` brings it back.' }
     }
     await $.store.delete('off')
-    await $.theme.set(LOOK)
+    await $.theme.set(lookOf(scheme))
 
     return { text: 'Matrix rain on.' }
   })
@@ -411,10 +479,12 @@ export const register: Register = on => {
     }
     const { Svg } = $.ui.resolve(e)
     const s = await read($, stage)
-    const key = keyOf(s)
+    // The look the theme was set with, as the app hands it back.
+    const look = e.props.overrideColorScheme ?? scheme
+    const key = keyOf(s, look)
     if (drawn?.key !== key) {
       const now = (await $.clock.now()) / 1000
-      drawn = { key, source: scene(settle(s.mood, now), firstDrawn(s.bursts, now), now), alt: ALT[s.mood] }
+      drawn = { key, source: scene(settle(s.mood, now), firstDrawn(s.bursts, now), now, look), alt: ALT[look][s.mood] }
     }
 
     return <Svg source={drawn.source} alt={drawn.alt} />

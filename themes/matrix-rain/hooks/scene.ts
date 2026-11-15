@@ -1,4 +1,4 @@
-import type { Burst, Mood } from '../types'
+import type { Burst, Mood, Scheme } from '../types'
 
 // Code rain, in the form the desktop app lets move (see the claude-themes
 // skill): no root viewBox, each stream hung from a 1x1 nested <svg> at a
@@ -50,8 +50,18 @@ const LAYERS = [
 
 type Layer = 0 | 1 | 2
 
-const GREEN = '#19ff6a'
-const GREEN_HEAD = '#d2ffe0'
+// A tool call's colour, by the kind of work, as it falls on black. A burst
+// keeps this colour; the light look paints it in its own (`PAPER`).
+export const TOOL = {
+  read: '#26e7ff', // cyan
+  edit: '#ff3df2', // magenta
+  shell: '#ffb21e', // amber
+  web: '#a77bff', // violet
+  agent: '#ffe45c', // gold
+  mcp: '#4f8cff', // blue
+  other: '#effff4', // white
+  failed: '#ff3346', // red
+} as const
 
 // mulberry32: small, seedable, the same numbers on every redraw.
 const rng = (seed: number) => {
@@ -189,10 +199,10 @@ export const shift = (was: View, mood: Mood, now: number): View => {
 
 const hex = (n: number) => Math.round(n).toString(16).padStart(2, '0')
 
-// A colour moved `t` of the way to white: the bright head of a stream.
-const toWhite = (color: string, t: number) => {
+// A colour moved `t` of the way to white (255) or black (0): a stream's head.
+const toward = (color: string, to: number, t: number) => {
   const v = parseInt(color.slice(1), 16)
-  const c = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map(x => x + (255 - x) * t)
+  const c = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map(x => x + (to - x) * t)
 
   return `#${c.map(hex).join('')}`
 }
@@ -216,8 +226,13 @@ const topOf = (s: Shape) => -(s.glyphs.length + 2) * LAYERS[s.layer].cell
 // (the letters that fade up from the head) and its head.
 type Paint = { body: string; trail: string; head: string }
 
-// A tool call's colour as paint.
-const tinted = (color: string): Paint => ({ body: color, trail: `url(#${gradId(color)})`, head: toWhite(color, 0.7) })
+// A tool call's colour as paint, in a look: its head is the brightest letter
+// on black, the darkest on paper.
+const tinted = (color: string, look: Look): Paint => {
+  const c = look.tool(color)
+
+  return { body: c, trail: `url(#${gradId(c)})`, head: look.toHead(c) }
+}
 
 // The rain's own paint: shared paint servers in <defs> (see `rainPaint`), so
 // one colour change there turns every stream grey or green at once.
@@ -331,10 +346,10 @@ const column = (c: Column, tier: Tier, view: View, v: number, now: number) => {
 // A tool call's streams: a handful in its colour, near and bright, falling
 // fast twice and gone. Each is placed by the burst's seed and timed from
 // `at`, when the window first drew it, so it always enters from the top.
-const burst = (b: Burst, now: number) => {
+const burst = (b: Burst, now: number, look: Look) => {
   const r = rng(b.seed)
   const age = now - b.at
-  const paint = tinted(b.color)
+  const paint = tinted(b.color, look)
   let out = ''
   for (let j = 0; j < b.size; j++) {
     const x = 1 + r() * 98
@@ -357,9 +372,65 @@ const burst = (b: Burst, now: number) => {
 const OPACITY: Record<Mood, number> = { idle: 0.55, wait: 0.8, busy: 1, storm: 1 }
 const GLOW: Record<Mood, number> = { idle: 0, wait: 0.5, busy: 1, storm: 1 }
 const FADE: Record<Mood, number> = { idle: 3, wait: 2, busy: 1.2, storm: 1.2 }
-// A grey with a trace of the green in it, so idle still reads as the same rain.
-const BODY: Record<Mood, string> = { idle: '#93a89a', wait: GREEN, busy: GREEN, storm: GREEN }
-const HEAD: Record<Mood, string> = { idle: '#dce6df', wait: GREEN_HEAD, busy: GREEN_HEAD, storm: GREEN_HEAD }
+
+// How the rain is painted in each look. Dark: phosphor green on black, each
+// stream's head the brightest letter, a green light behind. Light: deep green
+// ink on pale paper, each head the darkest letter, a soft green wash behind.
+type Look = {
+  ground: string
+  // The light behind the rain while Claude works: its colour at the centre,
+  // and at the edge, where it has faded out.
+  glow: [string, string, string]
+  weight: number
+  // A grey with a trace of the green in it while idle, so it still reads as
+  // the same rain; green while Claude works.
+  body: Record<Mood, string>
+  head: Record<Mood, string>
+  tool: (color: string) => string
+  toHead: (color: string) => string
+}
+
+const moods = (idle: string, working: string): Record<Mood, string> => ({
+  idle,
+  wait: working,
+  busy: working,
+  storm: working,
+})
+
+// Each tool's colour on paper: the same kind of work, deep enough to read on
+// the pale ground. White on black is ink on paper.
+const PAPER: Record<string, string> = {
+  [TOOL.read]: '#0086a3',
+  [TOOL.edit]: '#bf169c',
+  [TOOL.shell]: '#b06500',
+  [TOOL.web]: '#6a3fd6',
+  [TOOL.agent]: '#8a7200',
+  [TOOL.mcp]: '#1f5dd6',
+  [TOOL.other]: '#17261c',
+  [TOOL.failed]: '#cf1229',
+}
+
+const LOOKS: Record<Scheme, Look> = {
+  dark: {
+    ground: '#010603',
+    glow: ['#0a3a1c', '.5', '#000000'],
+    weight: 500,
+    body: moods('#93a89a', '#19ff6a'),
+    head: moods('#dce6df', '#d2ffe0'),
+    tool: color => color,
+    toHead: color => toward(color, 255, 0.7),
+  },
+  light: {
+    ground: '#e6f0e8',
+    glow: ['#9fe3b4', '.55', '#e6f0e8'],
+    // Dark letters on a light ground read thinner than glowing ones.
+    weight: 600,
+    body: moods('#62776a', '#0b8a3f'),
+    head: moods('#26362c', '#03311a'),
+    tool: color => PAPER[color] ?? color,
+    toHead: color => toward(color, 0, 0.45),
+  },
+}
 
 // An attribute easing from the last mood's value to this one's, from when the
 // window saw the change; nothing when the value didn't change.
@@ -373,43 +444,44 @@ const stop = (view: View, now: number, of: Record<Mood, string>, offset: string,
 
 // The paint servers every rain stream uses (`RAIN`). One stop is a solid
 // colour; in user space it paints any shape, however small its box.
-const rainPaint = (view: View, now: number) =>
-  `<linearGradient id="rain" gradientUnits="userSpaceOnUse">${stop(view, now, BODY, '0', '1')}</linearGradient>` +
-  `<linearGradient id="rainHead" gradientUnits="userSpaceOnUse">${stop(view, now, HEAD, '0', '1')}</linearGradient>` +
+const rainPaint = (view: View, now: number, look: Look) =>
+  `<linearGradient id="rain" gradientUnits="userSpaceOnUse">${stop(view, now, look.body, '0', '1')}</linearGradient>` +
+  `<linearGradient id="rainHead" gradientUnits="userSpaceOnUse">${stop(view, now, look.head, '0', '1')}</linearGradient>` +
   `<linearGradient id="rainTrail" x1="0" y1="0" x2="0" y2="1">` +
-  stop(view, now, BODY, '0', '0') +
-  stop(view, now, BODY, '.55', '.55') +
-  stop(view, now, BODY, '1', '1') +
+  stop(view, now, look.body, '0', '0') +
+  stop(view, now, look.body, '.55', '.55') +
+  stop(view, now, look.body, '1', '1') +
   `</linearGradient>`
 
-export const scene = (view: View, bursts: Burst[], now: number): string => {
+export const scene = (view: View, bursts: Burst[], now: number, scheme: Scheme = 'dark'): string => {
+  const look = LOOKS[scheme]
   const v = virtual(view, now)
   const rain = TIERS.map((tier, i) => tier.map(c => column(c, view.tiers[i] ?? { offs: [] }, view, v, now)).join('')).join('')
   // Newest first, until the app's 131,072-character limit is near.
   let drawn = ''
   const used: string[] = []
   for (const b of [...bursts].reverse()) {
-    const one = burst(b, now)
+    const one = burst(b, now, look)
     if (CELLS[view.mood].length + rain.length + drawn.length + one.length > 120000) {
       break
     }
     drawn = one + drawn
-    used.push(b.color)
+    used.push(look.tool(b.color))
   }
   const colors = [...new Set(used)]
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" font-family="Menlo, monospace">
 <style>
-text{text-anchor:middle;font-weight:500}
+text{text-anchor:middle;font-weight:${look.weight}}
 .a{font-size:11px}.b{font-size:14px}.c{font-size:18px}
 </style>
 <defs>
-${rainPaint(view, now)}
+${rainPaint(view, now, look)}
 ${colors.map(gradient).join('\n')}
-<radialGradient id="glow" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="#0a3a1c" stop-opacity=".5"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></radialGradient>
+<radialGradient id="glow" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="${look.glow[0]}" stop-opacity="${look.glow[1]}"/><stop offset="1" stop-color="${look.glow[2]}" stop-opacity="0"/></radialGradient>
 ${CELLS[view.mood]}
 </defs>
-<rect width="100%" height="100%" fill="#010603"/>
+<rect width="100%" height="100%" fill="${look.ground}"/>
 <rect width="100%" height="100%" fill="url(#glow)" opacity="${GLOW[view.mood]}">${ease(view, now, GLOW)}</rect>
 <g opacity="${OPACITY[view.mood]}">${ease(view, now, OPACITY)}${rain}</g>
 <g>${drawn}</g>

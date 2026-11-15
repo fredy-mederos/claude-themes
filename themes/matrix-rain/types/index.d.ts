@@ -4,6 +4,10 @@
 // busy while it works, storm while it writes a lot (several subagents).
 export type Mood = 'idle' | 'wait' | 'busy' | 'storm'
 
+// The look: green rain on black (the default), or deep green rain on pale
+// paper (`/matrix light`).
+export type Scheme = 'light' | 'dark'
+
 // One tool call's worth of coloured streams, waiting for the next redraw.
 export type Seed = { seed: number; color: string; size: number }
 
