@@ -283,15 +283,12 @@ const drawKept = async ($: Engine, look: 'light' | 'dark') => {
 // The rules a light mode applies, in a drawing that follows Claude's mode.
 const lightRules = (source: string) => source.match(/@media \(prefers-color-scheme: light\)\{(.*)\}\n<\/style>/)?.[1] ?? ''
 
-test("follows Claude's appearance by default, with colours for both modes", async ($, on) => {
+test("follows Claude's appearance by default, and leaves Claude's own colours alone", async ($, on) => {
   const { ui, svg, sets } = await session($, on)
   const look = sets.at(-1)
-  // No mode asked for: the app keeps the person's own, and paints its half.
-  expect(look?.overrideColorScheme).toBeUndefined()
-  expect(Object.keys(look?.colors?.inputs ?? {}).sort()).toEqual(['dark', 'light'])
-  expect(look?.colors?.codeTheme).toEqual({ light: 'vitesse-light', dark: 'vitesse-black' })
-  // The panel takes the app's own colour, so it suits whichever mode the app paints.
-  expect(look?.backdrop).toEqual({ scene: 'matrix-rain', glass: { blur: 14, opacity: 0.84 } })
+  // The backdrop alone: no mode asked for and no palette, so Claude keeps its
+  // own mode, text, panels and code blocks.
+  expect(look).toEqual({ backdrop: { scene: 'matrix-rain', glass: { blur: 14, opacity: 0.84 } } })
   const { alt, source } = await svg()
   expect(alt).toBe('Green code drifting slowly down the screen')
   // Drawn dark; in light mode the ground, the light behind, the rain and its

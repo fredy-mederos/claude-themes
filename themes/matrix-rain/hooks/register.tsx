@@ -2,7 +2,6 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ThemeSetArgs, Timer } from 'claude-code'
 
 import type { Appearance, Burst, Live, Mood, Seed, Stage } from '../types'
-import { makeColors } from './make-colors.js'
 import { levelFor, meter, RANK } from './meter'
 import { BURST_LIFE, scene, shift, start, TOOL } from './scene'
 import type { View } from './scene'
@@ -16,6 +15,8 @@ import type { View } from './scene'
 // a lot. A short digital chime when a reply ends. No band and no status line,
 // on purpose. It follows Claude's own mode: green on black in dark mode, deep
 // green on pale paper in light mode; /matrix light|dark keeps one look.
+// Claude's own colours (text, panels, code blocks) are left as they are: the
+// theme draws the backdrop and frosts the panel over it, nothing else.
 // /matrix on|off, /matrix auto|light|dark, /matrix sound on|off,
 // /matrix storm on|off.
 
@@ -76,80 +77,13 @@ function firstDrawn(bursts: Burst[], now: number): Burst[] {
   })
 }
 
-// Both modes: the app paints the half for the mode it is in. With a look
-// kept by /matrix light|dark, the desktop app still paints the half for its
-// own mode, since it doesn't follow a theme's mode yet.
-const { theme } = makeColors({
-  label: 'Matrix Rain',
-  roles: { accent: '#2bff88', danger: '#ff4f64', success: '#a8ff3e', warning: '#ffb21e', pro: '#3fe0ff' },
-  // Pale paper with a trace of the rain's green, and nearly black green ink.
-  light: {
-    gray: {
-      anchors: {
-        'surface-0': '#e3eee6',
-        'surface-1': '#ebf4ed',
-        'surface-2': '#f4f9f5',
-        'surface-3': '#f4f9f5',
-        'text-primary': '#0a1f12',
-        'text-secondary': '#26402f',
-        'text-muted': '#45604d',
-      },
-    },
-    // Diffs and git states in vitesse-light's colours, to match its code
-    // blocks; removed and draft a little darker, as their labels need.
-    git: {
-      added: '#1e754f',
-      removed: '#a04e4e',
-      modified: '#296aa3',
-      merged: '#a13865',
-      closed: '#a04e4e',
-      conflicting: '#a65e2b',
-      draft: '#5d6a5e',
-    },
-  },
-  dark: {
-    gray: {
-      anchors: {
-        'surface-0': '#030a06',
-        'surface-1': '#06110a',
-        'surface-2': '#09160d',
-        'surface-3': '#0b1a10',
-        // Nearly neutral, with a trace of green: a strong mint glows on
-        // black and reads soft. Kept this bright on purpose: the app draws
-        // its faded labels as this colour at about 55% opacity.
-        'text-primary': '#e6f6eb',
-        'text-secondary': '#bfdcc8',
-        'text-muted': '#9cc0a6',
-      },
-    },
-    // Diffs and git states in vitesse-black's own colours, to match the code
-    // blocks. Added, modified, merged and draft are a little lighter than
-    // vitesse's, as much as their labels need to read on their tints.
-    git: {
-      added: '#69a48b',
-      removed: '#cb7676',
-      modified: '#6f9dc4',
-      merged: '#da76a1',
-      closed: '#cb7676',
-      conflicting: '#d4976c',
-      draft: '#8e9b8e',
-    },
-  },
-  // The code theme paints the code blocks' background too: vitesse-black's is
-  // pure black, with soft teal and green syntax (github-dark's #24292e read
-  // as a light grey box on this page). vitesse-light is its daytime pair.
-  codeTheme: { light: 'vitesse-light', dark: 'vitesse-black' },
-})
-
-// Following Claude's mode, the look asks for none, and the backdrop draws
-// both looks, the app's mode picking one. A kept look asks for its mode, and
-// the backdrop draws that one alone. The panel behind the chat is dense
-// enough that streams passing behind the text are a soft glow, not moving
-// noise. It takes the app's own panel colour, which follows the mode the app
-// paints: a tint of one look's would put dark text on a dark panel wherever
-// the app is in the other mode.
+// The look is the backdrop alone: no `colors`, so Claude keeps its own text,
+// panels and code blocks in each mode. Following Claude's mode, the look asks
+// for none, and the backdrop draws both looks, the app's mode picking one. A
+// kept look asks for its mode, and the backdrop draws that one alone. The
+// panel behind the chat is dense enough that streams passing behind the text
+// are a soft glow, not moving noise, and takes the app's own panel colour.
 const lookOf = (appearance: Appearance): ThemeSetArgs => ({
-  colors: theme,
   ...(appearance === 'auto' ? {} : { overrideColorScheme: appearance }),
   backdrop: { scene: SCENE, glass: { blur: 14, opacity: 0.84 } },
 })

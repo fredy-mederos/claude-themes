@@ -42,7 +42,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   In light mode each is a deeper shade, so it reads on paper.
 
 - **A chime** when Claude finishes a reply: a deep pulse, one low thump and a dark chord that breathes out, under two seconds long. Not played for a reply you stopped.
-- A palette for each of the app's modes. Dark: near-black green, with soft, nearly white text; code blocks in the `vitesse-black` code theme, pure black with soft teal and green syntax. Light: pale green-tinted paper with nearly black green text; code blocks in `vitesse-light`. Diffs and git states take each code theme's colours: green for added lines, red for removed, blue for modified. A dense frosted panel sits behind the chat, so the rain shows behind the conversation without crossing the words. No status bar or band.
+- **Claude's own colours, untouched:** the text, panels, code blocks and diffs keep Claude's own Light and Dark colours. The theme only draws the backdrop and frosts the panel behind the chat (in Claude's own panel colour), so the rain shows behind the conversation without crossing the words. No status bar or band.
 
 ## Install
 
@@ -84,8 +84,8 @@ Then restart the app to load the new version.
 
 ## Good to know
 
-- How the rain follows Claude's appearance: a theme isn't told which mode the app is in, so the backdrop carries both looks and a `prefers-color-scheme` media query inside it picks one. The app's own colours (text, panels, code blocks) come from the theme's palette for the mode the app is in. If the rain doesn't switch with the app, or the backdrop goes blank, `/matrix light` or `/matrix dark` draws one look with no media query at all.
-- With a look kept by `/matrix light` or `/matrix dark`, the theme asks for that mode, but the desktop app keeps its own appearance setting for now, so its colours follow that. The chat stays readable either way: its panel takes the app's own colour for the mode it's in.
+- How the rain follows Claude's appearance: a theme isn't told which mode the app is in, so the backdrop carries both looks and a `prefers-color-scheme` media query inside it picks one. If the rain doesn't switch with the app, or the backdrop goes blank, `/matrix light` or `/matrix dark` draws one look with no media query at all.
+- With a look kept by `/matrix light` or `/matrix dark`, the theme asks for that mode, but the desktop app keeps its own appearance setting for now, so Claude's colours follow that. The chat stays readable either way: its panel takes Claude's own colour for the mode it's in.
 
 - The app reloads the backdrop on each redraw: when a turn starts or ends, when the rain changes level, and at most every 3 seconds while tools run. Each stream carries on from where it was.
 - Resizing the window doesn't redraw the rain: the app asks again at each new size, and the theme hands back the same drawing. If the app still drops the backdrop while resizing, the theme draws it anew every 20 seconds, so the rain comes back on its own.
@@ -98,6 +98,5 @@ Then restart the app to load the new version.
 - `hooks/register.tsx`: the look, the reactions to turns and tool calls, the chime and `/matrix`.
 - `hooks/scene.ts`: the animated SVG backdrop (SMIL only, sized in window pixels).
 - `hooks/meter.ts`: the token meter behind the storm, and the levels it picks.
-- `hooks/make-colors.js`: the palette builder from Claude Code's plugin-authoring kit.
 - `screenshots/`: the README pictures, dark and light; `tools/make-previews.mts` remakes them (needs Node 23 or later and Chrome).
 - `tests/`: run with `claude plugin test .`
