@@ -23,8 +23,8 @@ test('the backdrop is one slow Svg while idle', async ($, on) => {
   const svg = (await ui.find({ type: 'Svg' })) as any
   expect(svg).toBeDefined()
   expect(svg.props.alt).toMatch(/slowly/)
-  // Muted: the green light behind the rain is off.
-  expect(svg.props.source).toMatch(/fill="url\(#glow\)" opacity="0"/)
+  // Only the letters: no light behind the rain.
+  expect(svg.props.source).not.toMatch(/glow|radialGradient/)
   // The rain is grey while idle, through the shared paint every stream uses.
   expect(svg.props.source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#93a89a"/)
   expect(svg.props.source).toMatch(/fill="url\(#rain\)"/)
@@ -105,7 +105,9 @@ test('a turn makes it pour, and a tool call drops streams in its colour', async 
   // The rain turns green as the turn starts.
   expect(source).toMatch(/attributeName="stop-color" from="#93a89a" to="#19ff6a"/)
   // The light comes up as the turn starts.
-  expect(source).toMatch(/fill="url\(#glow\)" opacity="1"><animate attributeName="opacity" from="0" to="1"/)
+  // The rain brightens; nothing lights up behind it.
+  expect(source).toMatch(/<g opacity="1"><animate attributeName="opacity" from="0.55" to="1"/)
+  expect(source).not.toMatch(/glow|radialGradient/)
   expect(source).toMatch(/#26e7ff/)
   // Working, the heads scramble fast again.
   expect(headCycles(source).length).toBe(14)
@@ -149,7 +151,7 @@ test('with the storm on, the rain follows the tokens the model writes', async ($
   expect(streams(light.source)).toBe(50)
   // Still green, with the light half up: a turn is running.
   expect(light.source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#19ff6a"/)
-  expect(light.source).toMatch(/fill="url\(#glow\)" opacity="0.5"/)
+  expect(light.source).toMatch(/<g opacity="0.8">/)
 
   // The model writes again, at one model's usual pace: back to working.
   await write(700, 200)
@@ -291,12 +293,12 @@ test("follows Claude's appearance by default, and leaves Claude's own colours al
   expect(look).toEqual({ backdrop: { scene: 'matrix-rain', glass: { blur: 14, opacity: 0.84 } } })
   const { alt, source } = await svg()
   expect(alt).toBe('Green code drifting slowly down the screen')
-  // Drawn dark; in light mode the ground, the light behind, the rain and its
+  // Drawn dark; in light mode the ground, the rain and its
   // weight are repainted from the light look, its paint drawn beside the dark.
   expect(source).toMatch(/<rect width="100%" height="100%" fill="#010603"\/>/)
   const rules = lightRules(source)
   expect(rules).toContain("rect[fill='#010603']{fill:#e6f0e8}")
-  expect(rules).toContain('#glow>stop:first-child{stop-color:#9fe3b4;stop-opacity:.55}')
+  expect(rules).not.toMatch(/glow/)
   expect(rules).toContain("g[fill='url(#rain)']{fill:url(#rainL)}")
   expect(rules).toContain("text[fill='url(#rainTrail)']{fill:url(#rainTrailL)}")
   expect(rules).toContain("use[fill='url(#rainHead)']{fill:url(#rainHeadL)}")

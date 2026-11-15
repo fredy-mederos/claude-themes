@@ -14,17 +14,17 @@ A theme for the Claude desktop app: green code raining down behind the conversat
 The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`. In the app, the chat sits on a frosted panel down the middle, so the rain shows most in the margins.
 
 - **Idle:** muted. About fifty dim, grey streams drift down very slowly, in three depths (small and faint at the back, larger at the front), on plain black (pale paper in light mode).
-- **While Claude works:** the rain turns green, a green light comes up behind it, and it brightens and speeds up about fourteen times, with more streams joining from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
+- **While Claude works:** the rain turns green, brightens and speeds up about fourteen times, with more streams joining from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
 - **The storm** (on by default): while Claude works, the rain follows the tokens it writes, counted as they stream in from the main chat and from every subagent:
 
   | Level | When | Rain |
   | --- | --- | --- |
-  | Waiting | Claude has written almost nothing for a few seconds: a long command, a build, a job it waits on | Light: the fifty streams of idle, green, with the light half up, about three times as fast as idle |
+  | Waiting | Claude has written almost nothing for a few seconds: a long command, a build, a job it waits on | Light: the fifty streams of idle, green and a little dimmer, about three times as fast as idle |
   | Working | Claude writes at its usual pace | The fast green rain above: about eighty streams |
   | Storm | Claude writes a lot: two or more subagents at once, or a fast model writing a big file | About a hundred streams, a quarter faster than working |
 
   Only what Claude writes counts (its replies, its thinking, what it passes to tools, such as the code of an edit), not the conversation that goes with every request. Idle stays as it is. Each change is smooth: new streams join from the top, and streams that leave finish their fall. With `/matrix storm off`, a turn keeps the one working pace.
-- **Two looks, following Claude's appearance:** when you switch Claude between Light and Dark, the rain switches with it. Dark: phosphor green on black, each stream's head the brightest letter, a green light coming up behind while Claude works. Light: deep green ink on pale paper, each head the darkest letter, a soft green wash behind while Claude works. Everything else is the same in both: the levels, the storm, the changing letters, the tool calls and the chime. To keep one look whatever the mode, use `/matrix light` or `/matrix dark`.
+- **Two looks, following Claude's appearance:** when you switch Claude between Light and Dark, the rain switches with it. Dark: phosphor green on black, each stream's head the brightest letter. Light: deep green ink on pale paper, each head the darkest letter. Nothing lights up behind the rain: the falling letters are the whole scene. Everything else is the same in both: the levels, the storm, the changing letters, the tool calls and the chime. To keep one look whatever the mode, use `/matrix light` or `/matrix dark`.
 - **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles. They change at the rain's own pace: slowly while idle, fast while Claude works.
 - **Tool calls:** every tool call drops a handful of fast, bright streams in a colour for the kind of work:
 

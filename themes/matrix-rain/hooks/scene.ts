@@ -368,21 +368,18 @@ const burst = (b: Burst, now: number, look: Look) => {
   return out
 }
 
-// Idle is muted: dimmer, grey rain and no green light behind it. A turn brings
-// the green and the light up quickly; when it ends they fade out slowly.
-// Waiting, the rain stays green with the light half up.
+// Idle is muted: dimmer, grey rain. A turn brings the green up quickly; when
+// it ends it fades out slowly. Waiting, the rain stays green, a little dimmer.
+// Nothing is drawn behind the rain but the plain ground: the letters are the
+// whole scene.
 const OPACITY: Record<Mood, number> = { idle: 0.55, wait: 0.8, busy: 1, storm: 1 }
-const GLOW: Record<Mood, number> = { idle: 0, wait: 0.5, busy: 1, storm: 1 }
 const FADE: Record<Mood, number> = { idle: 3, wait: 2, busy: 1.2, storm: 1.2 }
 
 // How the rain is painted in each look. Dark: phosphor green on black, each
-// stream's head the brightest letter, a green light behind. Light: deep green
-// ink on pale paper, each head the darkest letter, a soft green wash behind.
+// stream's head the brightest letter. Light: deep green ink on pale paper,
+// each head the darkest letter.
 type Look = {
   ground: string
-  // The light behind the rain while Claude works: its colour at the centre,
-  // and at the edge, where it has faded out.
-  glow: [string, string, string]
   weight: number
   // A grey with a trace of the green in it while idle, so it still reads as
   // the same rain; green while Claude works.
@@ -415,7 +412,6 @@ const PAPER: Record<string, string> = {
 const LOOKS: Record<Scheme, Look> = {
   dark: {
     ground: '#010603',
-    glow: ['#0a3a1c', '.5', '#000000'],
     weight: 500,
     body: moods('#93a89a', '#19ff6a'),
     head: moods('#dce6df', '#d2ffe0'),
@@ -424,7 +420,6 @@ const LOOKS: Record<Scheme, Look> = {
   },
   light: {
     ground: '#e6f0e8',
-    glow: ['#9fe3b4', '.55', '#e6f0e8'],
     // Dark letters on a light ground read thinner than glowing ones.
     weight: 600,
     body: moods('#62776a', '#0b8a3f'),
@@ -467,8 +462,6 @@ const LIGHT = LOOKS.light
 const LIGHT_RULES =
   `text{font-weight:${LIGHT.weight}}` +
   `rect[fill='${DARK.ground}']{fill:${LIGHT.ground}}` +
-  `#glow>stop{stop-color:${LIGHT.glow[2]}}` +
-  `#glow>stop:first-child{stop-color:${LIGHT.glow[0]};stop-opacity:${LIGHT.glow[1]}}` +
   `g[fill='url(#rain)']{fill:url(#rainL)}` +
   `text[fill='url(#rainTrail)']{fill:url(#rainTrailL)}` +
   `use[fill='url(#rainHead)']{fill:url(#rainHeadL)}`
@@ -527,11 +520,9 @@ ${follow ? `${follows(colors)}\n` : ''}</style>
 <defs>
 ${rainPaint(view, now, look)}${follow ? rainPaint(view, now, LIGHT, 'L') : ''}
 ${trails.join('\n')}
-<radialGradient id="glow" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="${look.glow[0]}" stop-opacity="${look.glow[1]}"/><stop offset="1" stop-color="${look.glow[2]}" stop-opacity="0"/></radialGradient>
 ${CELLS[view.mood]}
 </defs>
 <rect width="100%" height="100%" fill="${look.ground}"/>
-<rect width="100%" height="100%" fill="url(#glow)" opacity="${GLOW[view.mood]}">${ease(view, now, GLOW)}</rect>
 <g opacity="${OPACITY[view.mood]}">${ease(view, now, OPACITY)}${rain}</g>
 <g>${drawn}</g>
 </svg>`
