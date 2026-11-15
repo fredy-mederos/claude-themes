@@ -293,12 +293,12 @@ test("follows Claude's appearance by default, and leaves Claude's own colours al
   expect(look).toEqual({ backdrop: { scene: 'matrix-rain', glass: { blur: 14, opacity: 0.84 } } })
   const { alt, source } = await svg()
   expect(alt).toBe('Green code drifting slowly down the screen')
-  // Drawn dark; in light mode the ground, the rain and its
-  // weight are repainted from the light look, its paint drawn beside the dark.
-  expect(source).toMatch(/<rect width="100%" height="100%" fill="#010603"\/>/)
+  // No background of its own: the letters fall over Claude's.
+  expect(source).not.toMatch(/<rect/)
+  // Drawn dark; in light mode the rain and its weight are repainted from the
+  // light look, its paint drawn beside the dark.
   const rules = lightRules(source)
-  expect(rules).toContain("rect[fill='#010603']{fill:#e6f0e8}")
-  expect(rules).not.toMatch(/glow/)
+  expect(rules).not.toMatch(/glow|rect/)
   expect(rules).toContain("g[fill='url(#rain)']{fill:url(#rainL)}")
   expect(rules).toContain("text[fill='url(#rainTrail)']{fill:url(#rainTrailL)}")
   expect(rules).toContain("use[fill='url(#rainHead)']{fill:url(#rainHeadL)}")
@@ -347,25 +347,25 @@ test("following Claude's appearance, a storm with many tool calls stays under th
   await ui.unmount()
 })
 
-test('/matrix light keeps pale paper, /matrix dark keeps the black, /matrix auto follows again', async ($, on) => {
+test('/matrix light keeps the deep green letters, /matrix dark the bright ones, /matrix auto follows again', async ($, on) => {
   const { ui, command, sets } = await session($, on)
-  expect((await command('light')).text).toMatch(/light, whatever Claude's appearance.*pale paper/)
+  expect((await command('light')).text).toMatch(/light, whatever Claude's appearance.*Deep green/)
   expect(sets.at(-1)?.overrideColorScheme).toBe('light')
   await ui.unmount()
   const light = await drawKept($, 'light')
-  expect(light.alt).toBe('Green code drifting slowly down a pale screen')
-  // Pale paper, and muted grey-green rain while idle; no media query.
-  expect(light.source).toMatch(/<rect width="100%" height="100%" fill="#e6f0e8"\/>/)
+  expect(light.alt).toBe('Deep green code drifting slowly down the screen')
+  // Muted grey-green rain while idle, over no background; no media query.
+  expect(light.source).not.toMatch(/<rect/)
   expect(light.source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#62776a"/)
-  expect(light.source).not.toMatch(/#010603|#93a89a|rainL/)
+  expect(light.source).not.toMatch(/#93a89a|rainL/)
   expect(light.source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
 
   expect((await command('dark')).text).toMatch(/dark, whatever Claude's appearance/)
   expect(sets.at(-1)?.overrideColorScheme).toBe('dark')
   const dark = await drawKept($, 'dark')
-  expect(dark.alt).toBe('Green code drifting slowly down a black screen')
-  expect(dark.source).toMatch(/<rect width="100%" height="100%" fill="#010603"\/>/)
-  expect(dark.source).not.toMatch(/@media|#e6f0e8|rainL/)
+  expect(dark.alt).toBe('Green code drifting slowly down the screen')
+  expect(dark.source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#93a89a"/)
+  expect(dark.source).not.toMatch(/<rect|@media|#62776a|rainL/)
 
   expect((await command('auto')).text).toMatch(/follows Claude's appearance/)
   expect(sets.at(-1)?.overrideColorScheme).toBeUndefined()
@@ -380,7 +380,7 @@ test('a session started with the light look kept is light, and its turns pour de
   await $.tool.call({ tool: 'Read', tool_use_id: 'u1', input: { file_path: '/x' } } as any)
   await ui.unmount()
   const { alt, source } = await drawKept($, 'light')
-  expect(alt).toMatch(/fast down a pale screen/)
+  expect(alt).toBe('Deep green code raining fast down the screen')
   expect(source).toMatch(/attributeName="stop-color" from="#62776a" to="#0b8a3f"/)
   // A read is cyan, deep enough to read on paper.
   expect(source).toMatch(/#0086a3/)

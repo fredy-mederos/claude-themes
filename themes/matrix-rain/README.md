@@ -1,19 +1,19 @@
 # Matrix Rain
 
-A theme for the Claude desktop app: green code raining down behind the conversation, on black when Claude is in dark mode and on pale paper when it's in light mode. Part of [Claude themes](../../README.md).
+A theme for the Claude desktop app: green code raining down behind the conversation, straight over Claude's own background: bright green in dark mode, deep green in light mode. Part of [Claude themes](../../README.md).
 
 <img src="screenshots/live.svg" alt="Matrix Rain falling, with coloured tool-call streams among the green" width="100%">
 
 | While Claude waits | While Claude works |
 | --- | --- |
-| <img src="screenshots/idle.png" alt="Sparse, slow green rain on black"> | <img src="screenshots/working.png" alt="Dense green rain with cyan, magenta, amber, violet, gold, blue, white and red streams"> |
-| <img src="screenshots/light-idle.png" alt="Sparse, slow grey-green rain on pale paper"> | <img src="screenshots/light-working.png" alt="Dense deep green rain on pale paper with cyan, magenta, amber, violet, gold, blue, ink and red streams"> |
+| <img src="screenshots/idle.png" alt="Sparse, slow grey rain on a dark background"> | <img src="screenshots/working.png" alt="Dense green rain with cyan, magenta, amber, violet, gold, blue, white and red streams"> |
+| <img src="screenshots/light-idle.png" alt="Sparse, slow grey-green rain on a light background"> | <img src="screenshots/light-working.png" alt="Dense deep green rain on a light background with cyan, magenta, amber, violet, gold, blue, ink and red streams"> |
 
 <img src="screenshots/closeup.png" alt="Close-up of the falling glyphs, bright heads at the bottom of each trail" width="100%">
 
-The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`. In the app, the chat sits on a frosted panel down the middle, so the rain shows most in the margins.
+The pictures are the theme's own scene, rendered by `node tools/make-previews.mts` over stand-ins for Claude's dark and light backgrounds. In the app, the chat sits on a frosted panel down the middle, so the rain shows most in the margins.
 
-- **Idle:** muted. About fifty dim, grey streams drift down very slowly, in three depths (small and faint at the back, larger at the front), on plain black (pale paper in light mode).
+- **Idle:** muted. About fifty dim, grey streams drift down very slowly, in three depths (small and faint at the back, larger at the front).
 - **While Claude works:** the rain turns green, brightens and speeds up about fourteen times, with more streams joining from the top. When the reply ends, the extra streams finish their fall and the rain slows again, with no jump.
 - **The storm** (on by default): while Claude works, the rain follows the tokens it writes, counted as they stream in from the main chat and from every subagent:
 
@@ -24,7 +24,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   | Storm | Claude writes a lot: two or more subagents at once, or a fast model writing a big file | About a hundred streams, a quarter faster than working |
 
   Only what Claude writes counts (its replies, its thinking, what it passes to tools, such as the code of an edit), not the conversation that goes with every request. Idle stays as it is. Each change is smooth: new streams join from the top, and streams that leave finish their fall. With `/matrix storm off`, a turn keeps the one working pace.
-- **Two looks, following Claude's appearance:** when you switch Claude between Light and Dark, the rain switches with it. Dark: phosphor green on black, each stream's head the brightest letter. Light: deep green ink on pale paper, each head the darkest letter. Nothing lights up behind the rain: the falling letters are the whole scene. Everything else is the same in both: the levels, the storm, the changing letters, the tool calls and the chime. To keep one look whatever the mode, use `/matrix light` or `/matrix dark`.
+- **Two looks, following Claude's appearance:** when you switch Claude between Light and Dark, the rain switches with it. Dark: phosphor green, each stream's head the brightest letter. Light: deep green ink, each head the darkest letter. The theme has no background of its own: the falling letters are the whole scene, over Claude's own background, with nothing lit or tinted behind them. Everything else is the same in both: the levels, the storm, the changing letters, the tool calls and the chime. To keep one look whatever the mode, use `/matrix light` or `/matrix dark`.
 - **Letters change as they fall:** a few letters along each trail flicker to new glyphs, and each stream's bright head scrambles. They change at the rain's own pace: slowly while idle, fast while Claude works.
 - **Tool calls:** every tool call drops a handful of fast, bright streams in a colour for the kind of work:
 
@@ -39,7 +39,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
   | White (ink in light mode) | everything else |
   | Red | a tool call that failed |
 
-  In light mode each is a deeper shade, so it reads on paper.
+  In light mode each is a deeper shade, so it reads on a light background.
 
 - **A chime** when Claude finishes a reply: a deep pulse, one low thump and a dark chord that breathes out, under two seconds long. Not played for a reply you stopped.
 - **Claude's own colours, untouched:** the text, panels, code blocks and diffs keep Claude's own Light and Dark colours. The theme only draws the backdrop and frosts the panel behind the chat (in Claude's own panel colour), so the rain shows behind the conversation without crossing the words. No status bar or band.
@@ -78,7 +78,7 @@ Then restart the app to load the new version.
 ## Commands
 
 - `/matrix off` turns the theme off, here and in new sessions. `/matrix on` brings it back.
-- `/matrix light` keeps the rain deep green on pale paper and `/matrix dark` keeps it green on black, whatever Claude's appearance, here and in new sessions. `/matrix auto` follows Claude's appearance again, the default.
+- `/matrix light` keeps the deep green letters, made for a light background, and `/matrix dark` keeps the bright green ones, made for a dark background, whatever Claude's appearance, here and in new sessions. `/matrix auto` follows Claude's appearance again, the default.
 - `/matrix sound off` silences the chime. `/matrix sound on` brings it back.
 - `/matrix storm off` keeps the rain at one pace while Claude works, whatever it writes. `/matrix storm on` brings back the waiting, working and storm levels.
 

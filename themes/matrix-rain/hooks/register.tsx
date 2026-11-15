@@ -13,10 +13,11 @@ import type { View } from './scene'
 // With the storm on, a running turn's rain follows the tokens the model
 // writes: light while it waits on a command or a job, a storm while it writes
 // a lot. A short digital chime when a reply ends. No band and no status line,
-// on purpose. It follows Claude's own mode: green on black in dark mode, deep
-// green on pale paper in light mode; /matrix light|dark keeps one look.
-// Claude's own colours (text, panels, code blocks) are left as they are: the
-// theme draws the backdrop and frosts the panel over it, nothing else.
+// on purpose. It follows Claude's own mode: bright green letters in dark
+// mode, deep green in light mode; /matrix light|dark keeps one look. Claude's
+// own colours and background (text, panels, code blocks) are left as they
+// are: the theme draws only the falling letters, with no background of their
+// own, and frosts the panel over them.
 // /matrix on|off, /matrix auto|light|dark, /matrix sound on|off,
 // /matrix storm on|off.
 
@@ -104,15 +105,13 @@ const FALL: Record<Mood, string> = {
   busy: 'raining fast down',
   storm: 'pouring down',
 }
-const GROUND: Record<Appearance, string> = { dark: 'a black screen', light: 'a pale screen', auto: 'the screen' }
-
 const altOf = (look: Appearance, mood: Mood) =>
-  `Green code ${FALL[mood]} ${GROUND[look]}${mood === 'storm' ? ' in a storm' : ''}`
+  `${look === 'light' ? 'Deep green' : 'Green'} code ${FALL[mood]} the screen${mood === 'storm' ? ' in a storm' : ''}`
 
 const SAID: Record<Appearance, string> = {
-  auto: "Matrix rain follows Claude's appearance: green on black in dark mode, deep green on pale paper in light mode. `/matrix light` or `/matrix dark` keeps one look.",
-  light: "Matrix rain: light, whatever Claude's appearance. Deep green rain on pale paper. `/matrix auto` follows Claude's appearance again.",
-  dark: "Matrix rain: dark, whatever Claude's appearance. Green rain on black. `/matrix auto` follows Claude's appearance again.",
+  auto: "Matrix rain follows Claude's appearance: bright green letters in dark mode, deep green in light mode. `/matrix light` or `/matrix dark` keeps one look.",
+  light: "Matrix rain: light, whatever Claude's appearance. Deep green letters, made for a light background. `/matrix auto` follows Claude's appearance again.",
+  dark: "Matrix rain: dark, whatever Claude's appearance. Bright green letters, made for a dark background. `/matrix auto` follows Claude's appearance again.",
 }
 
 // A tool's colour, by what kind of work it is.

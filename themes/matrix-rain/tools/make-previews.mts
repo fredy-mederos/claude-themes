@@ -6,6 +6,10 @@
 //   closeup.png   the same rain in a smaller window at twice the pixels
 //   light-idle.png, light-working.png   the same two in the light look
 //
+// The scene has no background of its own: in the app the letters fall over
+// Claude's. Here they fall over stand-ins for Claude's dark and light
+// backgrounds, close to the app's own but not taken from it.
+//
 // Run from the theme's folder: node tools/make-previews.mts
 // The stills come from headless Chrome (CHROME overrides its path) with a
 // throwaway profile. Times are fixed, so every run draws the same pictures.
@@ -30,18 +34,25 @@ const view = (mood: Mood): View => ({ ...start(mood, NOW - 100), vR: 5000 })
 // One burst per kind of tool, as the colour table in the README lists them.
 const bursts: Burst[] = Object.values(TOOL).map((color, i) => ({ seed: 4100 + i * 97, color, size: 4, at: NOW - 0.4 - i * 0.35 }))
 
-// The app draws the scene to fill the window; as a file it needs a size.
-const sized = (svg: string, w: number, h: number) =>
-  svg.replace('width="100%" height="100%"', `width="${w}" height="${h}"`)
+// Stand-ins for Claude's own backgrounds, behind the letters.
+const DARK_BG = '#262624'
+const LIGHT_BG = '#faf9f5'
+
+// The app draws the scene to fill the window; as a file it needs a size, and
+// a background for the letters to fall over.
+const sized = (svg: string, w: number, h: number, bg = DARK_BG) =>
+  svg
+    .replace('width="100%" height="100%"', `width="${w}" height="${h}"`)
+    .replace('</style>\n', `</style>\n<rect width="100%" height="100%" fill="${bg}"/>\n`)
 
 // A viewBox so it scales to the README's width (the app's own scene has none).
 const live = sized(scene(view('busy'), bursts, NOW), 1200, 600).replace(' width="1200"', ' viewBox="0 0 1200 600" width="1200"')
 writeFileSync(join(out, 'live.svg'), live)
 
 const work = mkdtempSync(join(tmpdir(), 'matrix-previews-'))
-const shoot = (name: string, svg: string, w: number, h: number, scale = 1, seconds = 2.5) => {
+const shoot = (name: string, svg: string, w: number, h: number, scale = 1, bg = DARK_BG, seconds = 2.5) => {
   const page = join(work, `${name}.svg`)
-  writeFileSync(page, sized(svg, w, h))
+  writeFileSync(page, sized(svg, w, h, bg))
   execFileSync(chrome, [
     '--headless=new',
     '--hide-scrollbars',
@@ -60,8 +71,8 @@ try {
   shoot('idle', scene(view('idle'), [], NOW), 1600, 900)
   shoot('working', scene(view('busy'), bursts, NOW), 1600, 900)
   shoot('closeup', scene(view('busy'), bursts, NOW), 800, 450, 2)
-  shoot('light-idle', scene(view('idle'), [], NOW, 'light'), 1600, 900)
-  shoot('light-working', scene(view('busy'), bursts, NOW, 'light'), 1600, 900)
+  shoot('light-idle', scene(view('idle'), [], NOW, 'light'), 1600, 900, 1, LIGHT_BG)
+  shoot('light-working', scene(view('busy'), bursts, NOW, 'light'), 1600, 900, 1, LIGHT_BG)
 } finally {
   rmSync(work, { recursive: true, force: true })
 }

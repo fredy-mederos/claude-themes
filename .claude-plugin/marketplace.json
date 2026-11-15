@@ -8,8 +8,8 @@
     {
       "name": "matrix-rain",
       "source": "./themes/matrix-rain",
-      "version": "0.6.0",
-      "description": "Matrix rain: green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, and chimes when a reply ends. On black in dark mode, on pale paper in light mode."
+      "version": "0.7.0",
+      "description": "Matrix rain: green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, and chimes when a reply ends. Over Claude's own background, in light or dark mode."
     },
     {
       "name": "clockworks",

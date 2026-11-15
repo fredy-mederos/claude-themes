@@ -52,7 +52,7 @@ const LAYERS = [
 
 type Layer = 0 | 1 | 2
 
-// A tool call's colour, by the kind of work, as it falls on black. A burst
+// A tool call's colour, by the kind of work, in the dark look. A burst
 // keeps this colour; the light look paints it in its own (`PAPER`).
 export const TOOL = {
   read: '#26e7ff', // cyan
@@ -229,7 +229,7 @@ const topOf = (s: Shape) => -(s.glyphs.length + 2) * LAYERS[s.layer].cell
 type Paint = { body: string; trail: string; head: string }
 
 // A tool call's colour as paint, in a look: its head is the brightest letter
-// on black, the darkest on paper.
+// in the dark look, the darkest in the light one.
 const tinted = (color: string, look: Look): Paint => {
   const c = look.tool(color)
 
@@ -370,16 +370,15 @@ const burst = (b: Burst, now: number, look: Look) => {
 
 // Idle is muted: dimmer, grey rain. A turn brings the green up quickly; when
 // it ends it fades out slowly. Waiting, the rain stays green, a little dimmer.
-// Nothing is drawn behind the rain but the plain ground: the letters are the
-// whole scene.
+// Nothing is drawn behind the rain, not even a ground: the letters fall
+// straight over the app's own background, and are the whole scene.
 const OPACITY: Record<Mood, number> = { idle: 0.55, wait: 0.8, busy: 1, storm: 1 }
 const FADE: Record<Mood, number> = { idle: 3, wait: 2, busy: 1.2, storm: 1.2 }
 
-// How the rain is painted in each look. Dark: phosphor green on black, each
-// stream's head the brightest letter. Light: deep green ink on pale paper,
-// each head the darkest letter.
+// How the rain is painted in each look. Dark, for a dark background:
+// phosphor green, each stream's head the brightest letter. Light, for a
+// light background: deep green ink, each head the darkest letter.
 type Look = {
-  ground: string
   weight: number
   // A grey with a trace of the green in it while idle, so it still reads as
   // the same rain; green while Claude works.
@@ -396,8 +395,8 @@ const moods = (idle: string, working: string): Record<Mood, string> => ({
   storm: working,
 })
 
-// Each tool's colour on paper: the same kind of work, deep enough to read on
-// the pale ground. White on black is ink on paper.
+// Each tool's colour in the light look: the same kind of work, deep enough to
+// read on a light background. White on dark is ink on light.
 const PAPER: Record<string, string> = {
   [TOOL.read]: '#0086a3',
   [TOOL.edit]: '#bf169c',
@@ -411,7 +410,6 @@ const PAPER: Record<string, string> = {
 
 const LOOKS: Record<Scheme, Look> = {
   dark: {
-    ground: '#010603',
     weight: 500,
     body: moods('#93a89a', '#19ff6a'),
     head: moods('#dce6df', '#d2ffe0'),
@@ -419,8 +417,7 @@ const LOOKS: Record<Scheme, Look> = {
     toHead: color => toward(color, 255, 0.7),
   },
   light: {
-    ground: '#e6f0e8',
-    // Dark letters on a light ground read thinner than glowing ones.
+    // Dark letters on a light background read thinner than glowing ones.
     weight: 600,
     body: moods('#62776a', '#0b8a3f'),
     head: moods('#26362c', '#03311a'),
@@ -461,12 +458,11 @@ const LIGHT = LOOKS.light
 
 const LIGHT_RULES =
   `text{font-weight:${LIGHT.weight}}` +
-  `rect[fill='${DARK.ground}']{fill:${LIGHT.ground}}` +
   `g[fill='url(#rain)']{fill:url(#rainL)}` +
   `text[fill='url(#rainTrail)']{fill:url(#rainTrailL)}` +
   `use[fill='url(#rainHead)']{fill:url(#rainHeadL)}`
 
-// A tool call's streams repainted in its colour on paper: body, trail, head.
+// A tool call's streams repainted in its light-look colour: body, trail, head.
 const lightTool = (color: string) => {
   const dark = DARK.tool(color)
   const light = LIGHT.tool(color)
@@ -479,7 +475,7 @@ const lightTool = (color: string) => {
 }
 
 // What following the mode adds for one tool colour: its rules, and the trail
-// gradient of its colour on paper.
+// gradient of its light-look colour.
 const lightToolCost = (color: string) => lightTool(color).length + gradient(LIGHT.tool(color)).length
 
 const follows = (colors: string[]) =>
@@ -494,7 +490,7 @@ export const scene = (view: View, bursts: Burst[], now: number, appearance: Appe
   // Newest first, until the app's 131,072-character limit is near.
   let drawn = ''
   let extra = follow ? follows([]).length + rainPaint(view, now, LIGHT, 'L').length : 0
-  // Each burst's colour, as it falls on black.
+  // Each burst's colour, in the dark look.
   const used: string[] = []
   for (const b of [...bursts].reverse()) {
     const one = burst(b, now, look)
@@ -522,7 +518,6 @@ ${rainPaint(view, now, look)}${follow ? rainPaint(view, now, LIGHT, 'L') : ''}
 ${trails.join('\n')}
 ${CELLS[view.mood]}
 </defs>
-<rect width="100%" height="100%" fill="${look.ground}"/>
 <g opacity="${OPACITY[view.mood]}">${ease(view, now, OPACITY)}${rain}</g>
 <g>${drawn}</g>
 </svg>`
