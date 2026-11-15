@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ThemeSetArgs, Timer } from 'claude-code'
 
-import type { Burst, Live, Mood, Scheme, Seed, Stage } from '../types'
+import type { Appearance, Burst, Live, Mood, Seed, Stage } from '../types'
 import { makeColors } from './make-colors.js'
 import { levelFor, meter, RANK } from './meter'
 import { BURST_LIFE, scene, shift, start, TOOL } from './scene'
@@ -14,9 +14,10 @@ import type { View } from './scene'
 // With the storm on, a running turn's rain follows the tokens the model
 // writes: light while it waits on a command or a job, a storm while it writes
 // a lot. A short digital chime when a reply ends. No band and no status line,
-// on purpose. Dark by default (green on black); /matrix light makes it deep
-// green rain on pale paper. /matrix on|off, /matrix light|dark,
-// /matrix sound on|off, /matrix storm on|off.
+// on purpose. It follows Claude's own mode: green on black in dark mode, deep
+// green on pale paper in light mode; /matrix light|dark keeps one look.
+// /matrix on|off, /matrix auto|light|dark, /matrix sound on|off,
+// /matrix storm on|off.
 
 const SCENE = 'matrix-rain'
 
@@ -52,7 +53,7 @@ let drawn: { key: string; source: string; alt: string } | undefined
 const HEAL_MS = 20_000
 let healer: Timer | undefined
 
-const keyOf = (s: Stage, look: Scheme) => `${look}:${s.mood}:${s.bursts.map(b => b.seed).join(',')}`
+const keyOf = (s: Stage, look: Appearance) => `${look}:${s.mood}:${s.bursts.map(b => b.seed).join(',')}`
 
 function settle(mood: Mood, now: number): View {
   shown = shown === undefined ? start(mood, now) : shown.mood === mood ? shown : shift(shown, mood, now)
@@ -75,8 +76,9 @@ function firstDrawn(bursts: Burst[], now: number): Burst[] {
   })
 }
 
-// Both modes, whichever look is chosen: the desktop app paints the half for
-// the mode it is in, whatever the look asks for.
+// Both modes: the app paints the half for the mode it is in. With a look
+// kept by /matrix light|dark, the desktop app still paints the half for its
+// own mode, since it doesn't follow a theme's mode yet.
 const { theme } = makeColors({
   label: 'Matrix Rain',
   roles: { accent: '#2bff88', danger: '#ff4f64', success: '#a8ff3e', warning: '#ffb21e', pro: '#3fe0ff' },
@@ -139,38 +141,44 @@ const { theme } = makeColors({
   codeTheme: { light: 'vitesse-light', dark: 'vitesse-black' },
 })
 
-// The look asks surfaces for its mode, and the backdrop draws it. The panel
-// behind the chat is dense enough that streams passing behind the text are a
-// soft glow, not moving noise. It takes the app's own panel colour, which
-// follows the mode the app paints: a tint of one look's would put dark text
-// on a dark panel wherever the app is in the other mode.
-const lookOf = (scheme: Scheme): ThemeSetArgs => ({
+// Following Claude's mode, the look asks for none, and the backdrop draws
+// both looks, the app's mode picking one. A kept look asks for its mode, and
+// the backdrop draws that one alone. The panel behind the chat is dense
+// enough that streams passing behind the text are a soft glow, not moving
+// noise. It takes the app's own panel colour, which follows the mode the app
+// paints: a tint of one look's would put dark text on a dark panel wherever
+// the app is in the other mode.
+const lookOf = (appearance: Appearance): ThemeSetArgs => ({
   colors: theme,
-  overrideColorScheme: scheme,
+  ...(appearance === 'auto' ? {} : { overrideColorScheme: appearance }),
   backdrop: { scene: SCENE, glass: { blur: 14, opacity: 0.84 } },
 })
 
-// The look chosen with /matrix light|dark, kept across sessions; read again
-// at each session start.
-let scheme: Scheme = 'dark'
+// The look: `auto` follows Claude's mode; /matrix light|dark keeps one, across
+// sessions. Read again at each session start.
+let appearance: Appearance = 'auto'
 
-async function schemeOf($: EngineInterface): Promise<Scheme> {
-  return (await $.store.get('light')) === true ? 'light' : 'dark'
+async function appearanceOf($: EngineInterface): Promise<Appearance> {
+  const kept = await $.store.get('look')
+
+  return kept === 'light' || kept === 'dark' ? kept : 'auto'
 }
 
-const ALT: Record<Scheme, Record<Mood, string>> = {
-  dark: {
-    idle: 'Green code drifting slowly down a black screen',
-    wait: 'Green code falling steadily down a black screen',
-    busy: 'Green code raining fast down a black screen',
-    storm: 'Green code pouring down a black screen in a storm',
-  },
-  light: {
-    idle: 'Grey-green code drifting slowly down a pale screen',
-    wait: 'Green code falling steadily down a pale screen',
-    busy: 'Green code raining fast down a pale screen',
-    storm: 'Green code pouring down a pale screen in a storm',
-  },
+const FALL: Record<Mood, string> = {
+  idle: 'drifting slowly down',
+  wait: 'falling steadily down',
+  busy: 'raining fast down',
+  storm: 'pouring down',
+}
+const GROUND: Record<Appearance, string> = { dark: 'a black screen', light: 'a pale screen', auto: 'the screen' }
+
+const altOf = (look: Appearance, mood: Mood) =>
+  `Green code ${FALL[mood]} ${GROUND[look]}${mood === 'storm' ? ' in a storm' : ''}`
+
+const SAID: Record<Appearance, string> = {
+  auto: "Matrix rain follows Claude's appearance: green on black in dark mode, deep green on pale paper in light mode. `/matrix light` or `/matrix dark` keeps one look.",
+  light: "Matrix rain: light, whatever Claude's appearance. Deep green rain on pale paper. `/matrix auto` follows Claude's appearance again.",
+  dark: "Matrix rain: dark, whatever Claude's appearance. Green rain on black. `/matrix auto` follows Claude's appearance again.",
 }
 
 // A tool's colour, by what kind of work it is.
@@ -323,11 +331,11 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'matrix',
-      description: 'Matrix rain theme: on | off | light | dark | sound on | sound off | storm on | storm off',
+      description: 'Matrix rain theme: on | off | auto | light | dark | sound on | sound off | storm on | storm off',
     })
-    scheme = await schemeOf($)
+    appearance = await appearanceOf($)
     if (!(await isOff($))) {
-      await $.theme.set(lookOf(scheme))
+      await $.theme.set(lookOf(appearance))
     }
     healer?.cancel()
     healer = $.clock.every(HEAL_MS, () => {
@@ -439,26 +447,20 @@ export const register: Register = on => {
 
       return { text: 'Matrix rain: the end-of-reply chime is on.' }
     }
-    if (args[0] === 'light' || args[0] === 'dark') {
-      scheme = args[0]
-      if (scheme === 'light') {
-        await $.store.set('light', true)
+    if (args[0] === 'auto' || args[0] === 'light' || args[0] === 'dark') {
+      appearance = args[0]
+      if (appearance === 'auto') {
+        await $.store.delete('look')
       } else {
-        await $.store.delete('light')
+        await $.store.set('look', appearance)
       }
-      const told =
-        scheme === 'light'
-          ? 'Matrix rain: light. Deep green rain on pale paper. `/matrix dark` brings back the black screen.'
-          : 'Matrix rain: dark. Green rain on black. `/matrix light` makes it pale paper.'
       if (await isOff($)) {
-        return { text: `${told} It shows once you turn it on with \`/matrix on\`.` }
+        return { text: `${SAID[appearance]} It shows once you turn it on with \`/matrix on\`.` }
       }
-      await $.theme.set(lookOf(scheme))
+      await $.theme.set(lookOf(appearance))
       $.ui.invalidate('ui.render')
 
-      return {
-        text: `${told} The desktop app keeps its own appearance setting, so set it to ${scheme === 'light' ? 'Light' : 'Dark'} to match.`,
-      }
+      return { text: SAID[appearance] }
     }
     if (args[0] === 'off') {
       await $.store.set('off', true)
@@ -468,7 +470,7 @@ export const register: Register = on => {
       return { text: 'Matrix rain off, here and in new sessions. `/matrix on` brings it back.' }
     }
     await $.store.delete('off')
-    await $.theme.set(lookOf(scheme))
+    await $.theme.set(lookOf(appearance))
 
     return { text: 'Matrix rain on.' }
   })
@@ -479,12 +481,13 @@ export const register: Register = on => {
     }
     const { Svg } = $.ui.resolve(e)
     const s = await read($, stage)
-    // The look the theme was set with, as the app hands it back.
-    const look = e.props.overrideColorScheme ?? scheme
+    // The look the theme was set with, as the app hands it back: a kept one's
+    // mode, or none while it follows Claude's.
+    const look: Appearance = e.props.overrideColorScheme ?? appearance
     const key = keyOf(s, look)
     if (drawn?.key !== key) {
       const now = (await $.clock.now()) / 1000
-      drawn = { key, source: scene(settle(s.mood, now), firstDrawn(s.bursts, now), now, look), alt: ALT[look][s.mood] }
+      drawn = { key, source: scene(settle(s.mood, now), firstDrawn(s.bursts, now), now, look), alt: altOf(look, s.mood) }
     }
 
     return <Svg source={drawn.source} alt={drawn.alt} />

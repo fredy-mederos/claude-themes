@@ -1,9 +1,11 @@
-import type { Burst, Mood, Scheme } from '../types'
+import type { Appearance, Burst, Mood, Scheme } from '../types'
 
 // Code rain, in the form the desktop app lets move (see the claude-themes
 // skill): no root viewBox, each stream hung from a 1x1 nested <svg> at a
 // percentage of the window's width, all motion SMIL, a <style> of plain paint
-// only (no calc, var, @keyframes or @media), no filters or masks.
+// only (no calc, var or @keyframes), no filters or masks. One media query,
+// on the app's colour scheme, and only when the rain follows it (`auto`):
+// should a surface ignore it, the rain stays dark, as it always was.
 //
 // Every redraw reloads the frame, so the streams are seeded (the same columns,
 // glyphs and speeds every time) and each one's `begin` comes from the
@@ -443,41 +445,88 @@ const stop = (view: View, now: number, of: Record<Mood, string>, offset: string,
   `<stop offset="${offset}" stop-color="${of[view.mood]}" stop-opacity="${opacity}">${ease(view, now, of, 'stop-color')}</stop>`
 
 // The paint servers every rain stream uses (`RAIN`). One stop is a solid
-// colour; in user space it paints any shape, however small its box.
-const rainPaint = (view: View, now: number, look: Look) =>
-  `<linearGradient id="rain" gradientUnits="userSpaceOnUse">${stop(view, now, look.body, '0', '1')}</linearGradient>` +
-  `<linearGradient id="rainHead" gradientUnits="userSpaceOnUse">${stop(view, now, look.head, '0', '1')}</linearGradient>` +
-  `<linearGradient id="rainTrail" x1="0" y1="0" x2="0" y2="1">` +
+// colour; in user space it paints any shape, however small its box. `id`
+// names the light look's own set, drawn beside the dark one in `auto`.
+const rainPaint = (view: View, now: number, look: Look, id = '') =>
+  `<linearGradient id="rain${id}" gradientUnits="userSpaceOnUse">${stop(view, now, look.body, '0', '1')}</linearGradient>` +
+  `<linearGradient id="rainHead${id}" gradientUnits="userSpaceOnUse">${stop(view, now, look.head, '0', '1')}</linearGradient>` +
+  `<linearGradient id="rainTrail${id}" x1="0" y1="0" x2="0" y2="1">` +
   stop(view, now, look.body, '0', '0') +
   stop(view, now, look.body, '.55', '.55') +
   stop(view, now, look.body, '1', '1') +
   `</linearGradient>`
 
-export const scene = (view: View, bursts: Burst[], now: number, scheme: Scheme = 'dark'): string => {
-  const look = LOOKS[scheme]
+// ── Following the app's mode ────────────────────────────────────────────
+// In `auto` the drawing is the dark look, and while the app is in light mode
+// a media query repaints it as the light one. Each part is picked out by the
+// paint the dark look gave it (selectors quote with ' so they never read as
+// the markup's own attributes), so the streams carry nothing extra.
+const DARK = LOOKS.dark
+const LIGHT = LOOKS.light
+
+const LIGHT_RULES =
+  `text{font-weight:${LIGHT.weight}}` +
+  `rect[fill='${DARK.ground}']{fill:${LIGHT.ground}}` +
+  `#glow>stop{stop-color:${LIGHT.glow[2]}}` +
+  `#glow>stop:first-child{stop-color:${LIGHT.glow[0]};stop-opacity:${LIGHT.glow[1]}}` +
+  `g[fill='url(#rain)']{fill:url(#rainL)}` +
+  `text[fill='url(#rainTrail)']{fill:url(#rainTrailL)}` +
+  `use[fill='url(#rainHead)']{fill:url(#rainHeadL)}`
+
+// A tool call's streams repainted in its colour on paper: body, trail, head.
+const lightTool = (color: string) => {
+  const dark = DARK.tool(color)
+  const light = LIGHT.tool(color)
+
+  return (
+    `g[fill='${dark}']{fill:${light}}` +
+    `text[fill='url(#${gradId(dark)})']{fill:url(#${gradId(light)})}` +
+    `use[fill='${DARK.toHead(dark)}']{fill:${LIGHT.toHead(light)}}`
+  )
+}
+
+// What following the mode adds for one tool colour: its rules, and the trail
+// gradient of its colour on paper.
+const lightToolCost = (color: string) => lightTool(color).length + gradient(LIGHT.tool(color)).length
+
+const follows = (colors: string[]) =>
+  `@media (prefers-color-scheme: light){${LIGHT_RULES}${colors.map(lightTool).join('')}}`
+
+// `appearance`: the look to draw, or `auto` for the one the app's mode calls for.
+export const scene = (view: View, bursts: Burst[], now: number, appearance: Appearance = 'dark'): string => {
+  const follow = appearance === 'auto'
+  const look = LOOKS[follow ? 'dark' : appearance]
   const v = virtual(view, now)
   const rain = TIERS.map((tier, i) => tier.map(c => column(c, view.tiers[i] ?? { offs: [] }, view, v, now)).join('')).join('')
   // Newest first, until the app's 131,072-character limit is near.
   let drawn = ''
+  let extra = follow ? follows([]).length + rainPaint(view, now, LIGHT, 'L').length : 0
+  // Each burst's colour, as it falls on black.
   const used: string[] = []
   for (const b of [...bursts].reverse()) {
     const one = burst(b, now, look)
-    if (CELLS[view.mood].length + rain.length + drawn.length + one.length > 120000) {
+    const more = follow && !used.includes(b.color) ? lightToolCost(b.color) : 0
+    if (CELLS[view.mood].length + rain.length + drawn.length + one.length + extra + more > 120000) {
       break
     }
     drawn = one + drawn
-    used.push(look.tool(b.color))
+    extra += more
+    used.push(b.color)
   }
   const colors = [...new Set(used)]
+  const trails = colors.map(c => gradient(look.tool(c)))
+  if (follow) {
+    trails.push(...colors.map(c => gradient(LIGHT.tool(c))))
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" font-family="Menlo, monospace">
 <style>
 text{text-anchor:middle;font-weight:${look.weight}}
 .a{font-size:11px}.b{font-size:14px}.c{font-size:18px}
-</style>
+${follow ? `${follows(colors)}\n` : ''}</style>
 <defs>
-${rainPaint(view, now, look)}
-${colors.map(gradient).join('\n')}
+${rainPaint(view, now, look)}${follow ? rainPaint(view, now, LIGHT, 'L') : ''}
+${trails.join('\n')}
 <radialGradient id="glow" cx="50%" cy="35%" r="80%"><stop offset="0" stop-color="${look.glow[0]}" stop-opacity="${look.glow[1]}"/><stop offset="1" stop-color="${look.glow[2]}" stop-opacity="0"/></radialGradient>
 ${CELLS[view.mood]}
 </defs>

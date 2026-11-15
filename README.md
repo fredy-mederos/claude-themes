@@ -6,7 +6,7 @@ Animated themes for the Claude desktop app. Each theme is its own plugin in `the
 
 | Theme | What it does |
 | --- | --- |
-| [Matrix Rain](themes/matrix-rain/) (`matrix-rain`) | Green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, has letters that change as they fall, and chimes when a reply ends. On black, or on pale paper with `/matrix light`. |
+| [Matrix Rain](themes/matrix-rain/) (`matrix-rain`) | Green code that drifts while idle, pours while Claude works, storms when it writes a lot, drops coloured streams on every tool call, has letters that change as they fall, and chimes when a reply ends. On black in dark mode, on pale paper in light mode. |
 | [Clockworks](themes/clockworks/) (`clockworks`) | An iron gear train that stands still and muted while idle, turns while Claude works, spins faster when it writes a lot, and rings a small bell when a reply ends. |
 
 <a href="themes/clockworks/"><img src="themes/clockworks/screenshots/live.svg" alt="Clockworks: an iron gear train turning on a dark graphite ground" width="100%"></a>

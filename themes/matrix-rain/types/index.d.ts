@@ -4,9 +4,12 @@
 // busy while it works, storm while it writes a lot (several subagents).
 export type Mood = 'idle' | 'wait' | 'busy' | 'storm'
 
-// The look: green rain on black (the default), or deep green rain on pale
-// paper (`/matrix light`).
+// The look: green rain on black, or deep green rain on pale paper.
 export type Scheme = 'light' | 'dark'
+
+// Which look the rain takes: the one Claude's own mode calls for (`auto`, the
+// default), or one kept whatever the mode (`/matrix light`, `/matrix dark`).
+export type Appearance = Scheme | 'auto'
 
 // One tool call's worth of coloured streams, waiting for the next redraw.
 export type Seed = { seed: number; color: string; size: number }

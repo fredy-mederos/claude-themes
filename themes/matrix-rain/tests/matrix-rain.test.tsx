@@ -31,7 +31,9 @@ test('the backdrop is one slow Svg while idle', async ($, on) => {
   // The letters change at the rain's idle pace: heads cycle in seconds.
   expect(headCycles(svg.props.source).length).toBe(14)
   expect(Math.min(...headCycles(svg.props.source))).toBeGreaterThan(3.5)
-  expect(svg.props.source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
+  // Following Claude's mode: one media query, on the colour scheme alone.
+  expect(svg.props.source.match(/@media[^{]*/g)).toEqual(['@media (prefers-color-scheme: light)'])
+  expect(svg.props.source).not.toMatch(/viewBox|vw|vh|calc\(|@keyframes|<marker/)
   expect(svg.props.source.length).toBeLessThan(131072)
   await ui.unmount()
 })
@@ -267,57 +269,118 @@ test('a finished reply plays the chime, a stopped one does not', async ($, on) =
   expect(played.length).toBe(1)
 })
 
-// The backdrop as the app asks for it once the theme was set light.
-const LIGHT_BACKDROP = { ...BACKDROP, props: { ...BACKDROP.props, overrideColorScheme: 'light' } }
+// The backdrop as the app asks for it once the theme was set to keep a look.
+const kept = (look: 'light' | 'dark') => ({ ...BACKDROP, props: { ...BACKDROP.props, overrideColorScheme: look } })
 
-const drawLight = async ($: Engine) => {
-  const ui = await $.ui.mount(LIGHT_BACKDROP)
+const drawKept = async ($: Engine, look: 'light' | 'dark') => {
+  const ui = await $.ui.mount(kept(look))
   const props = ((await ui.find({ type: 'Svg' })) as any).props as { alt: string; source: string }
   await ui.unmount()
 
   return props
 }
 
-test('dark by default, with colours for both of the app\'s modes', async ($, on) => {
+// The rules a light mode applies, in a drawing that follows Claude's mode.
+const lightRules = (source: string) => source.match(/@media \(prefers-color-scheme: light\)\{(.*)\}\n<\/style>/)?.[1] ?? ''
+
+test("follows Claude's appearance by default, with colours for both modes", async ($, on) => {
   const { ui, svg, sets } = await session($, on)
   const look = sets.at(-1)
-  expect(look?.overrideColorScheme).toBe('dark')
+  // No mode asked for: the app keeps the person's own, and paints its half.
+  expect(look?.overrideColorScheme).toBeUndefined()
   expect(Object.keys(look?.colors?.inputs ?? {}).sort()).toEqual(['dark', 'light'])
   expect(look?.colors?.codeTheme).toEqual({ light: 'vitesse-light', dark: 'vitesse-black' })
   // The panel takes the app's own colour, so it suits whichever mode the app paints.
   expect(look?.backdrop).toEqual({ scene: 'matrix-rain', glass: { blur: 14, opacity: 0.84 } })
   const { alt, source } = await svg()
-  expect(alt).toMatch(/black screen/)
+  expect(alt).toBe('Green code drifting slowly down the screen')
+  // Drawn dark; in light mode the ground, the light behind, the rain and its
+  // weight are repainted from the light look, its paint drawn beside the dark.
   expect(source).toMatch(/<rect width="100%" height="100%" fill="#010603"\/>/)
+  const rules = lightRules(source)
+  expect(rules).toContain("rect[fill='#010603']{fill:#e6f0e8}")
+  expect(rules).toContain('#glow>stop:first-child{stop-color:#9fe3b4;stop-opacity:.55}')
+  expect(rules).toContain("g[fill='url(#rain)']{fill:url(#rainL)}")
+  expect(rules).toContain("text[fill='url(#rainTrail)']{fill:url(#rainTrailL)}")
+  expect(rules).toContain("use[fill='url(#rainHead)']{fill:url(#rainHeadL)}")
+  expect(rules).toContain('text{font-weight:600}')
+  expect(source).toMatch(/<linearGradient id="rainL" [^>]*><stop offset="0" stop-color="#62776a"/)
+  expect(source).toMatch(/<linearGradient id="rainHeadL" /)
+  expect(source).toMatch(/<linearGradient id="rainTrailL" /)
   await ui.unmount()
 })
 
-test('/matrix light makes it pale paper, and /matrix dark brings back the black', async ($, on) => {
+test("following Claude's appearance, a tool call's streams turn to paper colours in light mode", async ($, on) => {
+  const { clock, ui, svg, write } = await session($, on)
+  await $.turn.start({ text: 'hi', turnId: 't1' } as any)
+  await write(700, 200)
+  await clock.advance(5000)
+  await $.tool.call({ tool: 'Read', tool_use_id: 'u1', input: { file_path: '/x' } } as any)
+  const { alt, source } = await svg()
+  expect(alt).toMatch(/fast down the screen/)
+  // Both looks' rain eases green as the turn starts.
+  expect(source).toMatch(/<linearGradient id="rain" [^>]*><stop [^>]*><animate attributeName="stop-color" from="#93a89a" to="#19ff6a"/)
+  expect(source).toMatch(/<linearGradient id="rainL" [^>]*><stop [^>]*><animate attributeName="stop-color" from="#62776a" to="#0b8a3f"/)
+  // A read: cyan on black, a deeper cyan on paper, its trail and head too.
+  const rules = lightRules(source)
+  expect(rules).toContain("g[fill='#26e7ff']{fill:#0086a3}")
+  expect(rules).toContain("text[fill='url(#g26e7ff)']{fill:url(#g0086a3)}")
+  expect(source).toMatch(/<linearGradient id="g0086a3" /)
+  // The rules quote with ', so counting the markup's own paint still works.
+  expect(source).not.toMatch(/\[fill="/)
+  await ui.unmount()
+})
+
+test("following Claude's appearance, a storm with many tool calls stays under the app's limit", async ($, on) => {
+  const { clock, ui, svg, write } = await session($, on)
+  await $.turn.start({ text: 'hi', turnId: 't1' } as any)
+  await write(4200, 1200)
+  await clock.advance(1000)
+  await clock.advance(3000)
+  const tools = ['Read', 'Edit', 'Bash', 'WebFetch', 'Agent', 'mcp__x__y', 'Other', 'Read', 'Edit', 'Bash']
+  for (const [i, tool] of tools.entries()) {
+    await $.tool.call({ tool, tool_use_id: `u${i}`, input: {} } as any)
+  }
+  await clock.advance(3000)
+  const storm = await svg()
+  expect(storm.alt).toMatch(/storm/)
+  expect(storm.source.length).toBeLessThan(131072)
+  await ui.unmount()
+})
+
+test('/matrix light keeps pale paper, /matrix dark keeps the black, /matrix auto follows again', async ($, on) => {
   const { ui, command, sets } = await session($, on)
-  expect((await command('light')).text).toMatch(/light.*pale paper.*set it to Light/)
+  expect((await command('light')).text).toMatch(/light, whatever Claude's appearance.*pale paper/)
   expect(sets.at(-1)?.overrideColorScheme).toBe('light')
   await ui.unmount()
-  const { alt, source } = await drawLight($)
-  expect(alt).toMatch(/slowly down a pale screen/)
-  // Pale paper, and muted grey-green rain while idle.
-  expect(source).toMatch(/<rect width="100%" height="100%" fill="#e6f0e8"\/>/)
-  expect(source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#62776a"/)
-  expect(source).not.toMatch(/#010603|#93a89a/)
-  expect(source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
+  const light = await drawKept($, 'light')
+  expect(light.alt).toBe('Green code drifting slowly down a pale screen')
+  // Pale paper, and muted grey-green rain while idle; no media query.
+  expect(light.source).toMatch(/<rect width="100%" height="100%" fill="#e6f0e8"\/>/)
+  expect(light.source).toMatch(/<linearGradient id="rain" [^>]*><stop offset="0" stop-color="#62776a"/)
+  expect(light.source).not.toMatch(/#010603|#93a89a|rainL/)
+  expect(light.source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<marker/)
 
-  expect((await command('dark')).text).toMatch(/dark.*set it to Dark/)
+  expect((await command('dark')).text).toMatch(/dark, whatever Claude's appearance/)
   expect(sets.at(-1)?.overrideColorScheme).toBe('dark')
+  const dark = await drawKept($, 'dark')
+  expect(dark.alt).toBe('Green code drifting slowly down a black screen')
+  expect(dark.source).toMatch(/<rect width="100%" height="100%" fill="#010603"\/>/)
+  expect(dark.source).not.toMatch(/@media|#e6f0e8|rainL/)
+
+  expect((await command('auto')).text).toMatch(/follows Claude's appearance/)
+  expect(sets.at(-1)?.overrideColorScheme).toBeUndefined()
 })
 
-test('a session started light is light, and its turns pour deep green with tools in paper colours', async ($, on) => {
-  const { clock, ui, write, sets } = await session($, on, { light: true })
+test('a session started with the light look kept is light, and its turns pour deep green with tools in paper colours', async ($, on) => {
+  const { clock, ui, write, sets } = await session($, on, { look: 'light' })
   expect(sets[0]?.overrideColorScheme).toBe('light')
   await $.turn.start({ text: 'hi', turnId: 't1' } as any)
   await write(700, 200)
   await clock.advance(5000)
   await $.tool.call({ tool: 'Read', tool_use_id: 'u1', input: { file_path: '/x' } } as any)
   await ui.unmount()
-  const { alt, source } = await drawLight($)
+  const { alt, source } = await drawKept($, 'light')
   expect(alt).toMatch(/fast down a pale screen/)
   expect(source).toMatch(/attributeName="stop-color" from="#62776a" to="#0b8a3f"/)
   // A read is cyan, deep enough to read on paper.
