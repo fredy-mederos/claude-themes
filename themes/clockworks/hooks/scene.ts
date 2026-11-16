@@ -6,6 +6,10 @@ import type { Gear, TrainSpec } from './gears'
 // move (the same as Matrix Rain's rain): no viewBox, sized in window pixels,
 // all motion SMIL, no <style>, filters or masks.
 //
+// The scene has no background of its own, not even a ground: the gears turn
+// straight over the app's own background, in light or dark mode, and are the
+// whole scene.
+//
 // The train is laid out on a 1600 x 900 sheet, hung by its centre from the
 // centre of the window: a big flywheel at the bottom left drives a line of
 // pinions up a diagonal to two wheels at the top right. A wider window shows
@@ -178,8 +182,7 @@ const BODIES = GEARS.map((g, i) => cast(g, KINDS[i % KINDS.length] as Kind))
 const DEFS =
   '<radialGradient id="iron" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#5d646e"/><stop offset=".7" stop-color="#3b4047"/><stop offset="1" stop-color="#25292e"/></radialGradient>' +
   '<radialGradient id="dark" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#454b53"/><stop offset=".7" stop-color="#2b2f35"/><stop offset="1" stop-color="#1a1d21"/></radialGradient>' +
-  '<radialGradient id="steel" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7a828c"/><stop offset=".7" stop-color="#555c65"/><stop offset="1" stop-color="#363b42"/></radialGradient>' +
-  '<linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16181c"/><stop offset="1" stop-color="#0a0b0d"/></linearGradient>'
+  '<radialGradient id="steel" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7a828c"/><stop offset=".7" stop-color="#555c65"/><stop offset="1" stop-color="#363b42"/></radialGradient>'
 
 // ── The turning clock ───────────────────────────────────────────────────
 // What the window shows: since wall second `tR` the driver has turned from
@@ -308,7 +311,6 @@ export const scene = (view: View, now: number): string => {
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
 <defs>${DEFS}</defs>
-<rect width="100%" height="100%" fill="url(#ground)"/>
 <svg x="50%" y="50%" width="1" height="1" overflow="visible"><g transform="translate(-800 -450)">
 ${strength(view, now)}
 ${gears.join('\n')}

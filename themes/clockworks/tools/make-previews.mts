@@ -4,6 +4,11 @@
 //   idle.png      the gears standing still and muted while Claude waits
 //   working.png   the gears turning at full strength during a reply
 //   closeup.png   the flywheel and the first pinions at twice the pixels
+//   light-idle.png, light-working.png   the same two over a light background
+//
+// The scene has no background of its own: in the app the gears turn over
+// Claude's. Here they turn over stand-ins for Claude's dark and light
+// backgrounds, close to the app's own but not taken from it.
 //
 // Run from the theme's folder: node tools/make-previews.mts
 // The stills come from headless Chrome (CHROME overrides its path) with a
@@ -37,17 +42,25 @@ mkdirSync(out, { recursive: true })
 const NOW = 1_000_000
 const view = (mood: Mood) => ({ ...shift(start('idle', NOW - 100), mood, NOW - 100), vR: 37 })
 
-// The app draws the scene to fill the window; as a file it needs a size.
-const sized = (svg: string, w: number, h: number) => svg.replace('width="100%" height="100%"', `width="${w}" height="${h}"`)
+// Stand-ins for Claude's own backgrounds, behind the gears.
+const DARK_BG = '#262624'
+const LIGHT_BG = '#faf9f5'
+
+// The app draws the scene to fill the window; as a file it needs a size, and
+// a background for the gears to turn over.
+const sized = (svg: string, w: number, h: number, bg = DARK_BG) =>
+  svg
+    .replace('width="100%" height="100%"', `width="${w}" height="${h}"`)
+    .replace('</defs>\n', `</defs>\n<rect width="100%" height="100%" fill="${bg}"/>\n`)
 
 // A viewBox so it scales to the README's width (the app's own scene has none).
 const live = sized(scene(view('busy'), NOW), 1600, 900).replace(' width="1600"', ' viewBox="0 0 1600 900" width="1600"')
 writeFileSync(join(out, 'live.svg'), live)
 
 const work = mkdtempSync(join(tmpdir(), 'clockworks-previews-'))
-const shoot = (name: string, svg: string, w: number, h: number, scale = 1, seconds = 2.5) => {
+const shoot = (name: string, svg: string, w: number, h: number, scale = 1, bg = DARK_BG, seconds = 2.5) => {
   const page = join(work, `${name}.svg`)
-  writeFileSync(page, sized(svg, w, h))
+  writeFileSync(page, sized(svg, w, h, bg))
   execFileSync(
     chrome,
     [
@@ -73,6 +86,8 @@ try {
   shoot('working', scene(view('busy'), NOW), 1600, 900)
   // A smaller window shows the middle of the sheet: the train's diagonal.
   shoot('closeup', scene(view('busy'), NOW), 800, 450, 2)
+  shoot('light-idle', scene(view('idle'), NOW), 1600, 900, 1, LIGHT_BG)
+  shoot('light-working', scene(view('busy'), NOW), 1600, 900, 1, LIGHT_BG)
 } finally {
   rmSync(work, { recursive: true, force: true })
 }

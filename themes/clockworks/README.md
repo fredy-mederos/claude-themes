@@ -6,13 +6,14 @@ A theme for the Claude desktop app: an iron gear train behind the conversation. 
 
 | While Claude waits | While Claude works |
 | --- | --- |
-| <img src="screenshots/idle.png" alt="The gear train standing still, dim, on a dark graphite ground"> | <img src="screenshots/working.png" alt="The same gear train at full strength, turning"> |
+| <img src="screenshots/idle.png" alt="The gear train standing still, dim, over a dark background"> | <img src="screenshots/working.png" alt="The same gear train at full strength, turning"> |
+| <img src="screenshots/light-idle.png" alt="The gear train standing still, dim, over a light background"> | <img src="screenshots/light-working.png" alt="The same gear train at full strength over a light background"> |
 
 <img src="screenshots/closeup.png" alt="Close-up of the pinions: holes, slots, spokes, keyed bores and bronze bushings" width="100%">
 
-The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`. In the app, the chat sits on a frosted panel down the middle, so the gears show most in the margins.
+The pictures are the theme's own scene, rendered by `node tools/make-previews.mts`, over stand-ins for Claude's dark and light backgrounds: the scene has none of its own. In the app, the chat sits on a frosted panel down the middle, so the gears show most in the margins.
 
-- **Idle:** muted. The train stands still at about a quarter strength on a dark graphite ground.
+- **Idle:** muted. The train stands still at about a quarter strength.
 - **While Claude works:** the gears spin up over about a second and come to full strength. The big flywheel turns once every 40 seconds, and each pinion turns as many times faster as the flywheel has teeth over its own, so the small ones always look busiest. When the reply ends, the train coasts to a stop over about two seconds and fades back.
 - **The colours never change.** Only how visible the gears are and how fast they turn.
 - **The storm** (on by default): while Claude works, the gears follow the tokens it writes, counted as they stream in from the main chat and from every subagent:
@@ -27,7 +28,7 @@ The pictures are the theme's own scene, rendered by `node tools/make-previews.mt
 - **The gears mesh for real.** The whole train has one tooth pitch, every centre is set so a tooth sits in a gap, and each wheel turns the opposite way to its neighbour at the ratio of their teeth, so nothing slips when the speed changes.
 - **Every wheel is cast its own way:** a heavy flywheel with a thick rim, six broad tapered spokes and a hex-bolted hub; solid webs with lightening holes; a dished wheel; kidney slots; straight, curved and S-shaped spokes; keyed steel pinions; bronze bushings. Plain iron, blackened iron and steel take turns along the train.
 - **A chime** when Claude finishes a reply: five clockwork ticks, each a little later and softer as the train runs down, then one small bell left to ring. About two seconds. Not played for a reply you stopped.
-- A graphite palette for dark mode with a trace of blue steel, bronze for the accent, and a dense frosted panel behind the chat, so the gears turn behind the conversation without crossing the words. Code blocks use the `ayu-dark` code theme: near black, with warm orange keywords. No status bar or band.
+- **Claude's own colours and background.** The theme sets no palette, so the text, panels, code blocks and diffs keep Claude's own Light and Dark colours, and the gears have no background of their own: they turn straight over Claude's, in either mode. Iron, steel and bronze read on both. A dense frosted panel behind the chat, in Claude's own panel colour, keeps the gears from crossing the words. No status bar or band.
 
 ## Install
 
@@ -81,6 +82,5 @@ Then restart the app to load the new version.
 - `hooks/scene.ts`: the animated SVG backdrop (SMIL only, sized in window pixels), how each wheel is cast, and the turning clock.
 - `hooks/gears.ts`: gear geometry (teeth, spokes, holes, slots, keyed bores) and the train's layout, set to mesh.
 - `hooks/meter.ts`: the token meter behind the storm, and the levels it picks (the same as Matrix Rain's).
-- `hooks/make-colors.js`: the palette builder from Claude Code's plugin-authoring kit.
 - `screenshots/`: the README pictures; `tools/make-previews.mts` remakes them (needs Node 22.18 or later and Chrome).
 - `tests/`: run with `claude plugin test .`

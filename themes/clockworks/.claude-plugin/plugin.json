@@ -1,6 +1,6 @@
 {
   "name": "clockworks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Clockworks theme: an iron gear train behind the chat that stands still and muted while idle, turns while Claude works, and spins faster when it writes a lot. /clockworks on|off, /clockworks storm on|off.",
   "types": "./types/index.d.ts"
 }

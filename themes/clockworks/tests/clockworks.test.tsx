@@ -36,6 +36,8 @@ test('idle, the gears stand still and muted', async ($, on) => {
   expect(angles(source).length).toBe(GEARS.length)
   expect(source).not.toMatch(/animateTransform/)
   expect(source).toMatch(/<g opacity="0.26">/)
+  // No background of its own: the gears turn over Claude's.
+  expect(source).not.toMatch(/<rect|id="ground"/)
   // The form the desktop app lets move: no viewBox, no CSS, no filters.
   expect(source).not.toMatch(/viewBox|vw|vh|calc\(|@media|@keyframes|<style|<filter|<mask|<marker|<script/)
   expect(source.length).toBeLessThan(131072)
@@ -91,7 +93,7 @@ test('a turn spins the gears up and brings them to full strength', async ($, on)
   const { ui, svg } = await session($, on)
   await $.turn.start({ text: 'hi', turnId: 't1' } as any)
   const { alt, source } = await svg()
-  expect(alt).toMatch(/turning on/)
+  expect(alt).toMatch(/turning$/)
   // Every gear spins up, then turns on: the driver once in 40 s.
   expect(easing(source)).toBe(GEARS.length)
   expect(periods(source).length).toBe(GEARS.length)
@@ -135,7 +137,7 @@ test('with the storm on, the gears follow the tokens the model writes', async ($
   await command('storm off')
   await write(4200, 1200)
   await clock.advance(5000)
-  expect((await svg()).alt).toMatch(/turning on/)
+  expect((await svg()).alt).toMatch(/turning$/)
 
   await $.turn.complete({ turnId: 't1', reason: 'answer' } as any)
   expect((await svg()).alt).toMatch(/standing still/)
@@ -160,10 +162,10 @@ test('with the storm off, a turn keeps one speed', async ($, on) => {
   await $.turn.start({ text: 'hi', turnId: 't1' } as any)
   await write(4200, 1200)
   await clock.advance(5000)
-  expect((await svg()).alt).toMatch(/turning on/)
+  expect((await svg()).alt).toMatch(/turning$/)
   // Nothing written for a long while: still working.
   await clock.advance(30_000)
-  expect((await svg()).alt).toMatch(/turning on/)
+  expect((await svg()).alt).toMatch(/turning$/)
   await ui.unmount()
 })
 
@@ -173,7 +175,7 @@ test('/clockworks storm turns it off and on, mid-turn too', async ($, on) => {
   await $.turn.start({ text: 'hi', turnId: 't1' } as any)
   await write(4200, 1200)
   await clock.advance(5000)
-  expect((await svg()).alt).toMatch(/turning on/)
+  expect((await svg()).alt).toMatch(/turning$/)
   expect((await command('storm on')).text).toMatch(/storm is on/)
   await write(4200, 1200)
   await clock.advance(1000)

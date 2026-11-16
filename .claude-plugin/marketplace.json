@@ -14,8 +14,8 @@
     {
       "name": "clockworks",
       "source": "./themes/clockworks",
-      "version": "0.1.0",
-      "description": "Clockworks: an iron gear train that stands still and muted while idle, turns while Claude works, spins faster when it writes a lot, and rings a small bell when a reply ends."
+      "version": "0.2.0",
+      "description": "Clockworks: an iron gear train that stands still and muted while idle, turns while Claude works, spins faster when it writes a lot, and rings a small bell when a reply ends. Over Claude's own background, in light or dark mode."
     }
   ]
 }

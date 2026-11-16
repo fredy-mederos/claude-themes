@@ -2,7 +2,6 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, ThemeSetArgs, Timer } from 'claude-code'
 
 import type { Mood, Stage } from '../types'
-import { makeColors } from './make-colors.js'
 import { levelFor, meter, RANK } from './meter'
 import { scene, shift, start } from './scene'
 import type { View } from './scene'
@@ -13,7 +12,10 @@ import type { View } from './scene'
 // writes: creeping while it waits on a command or a job, faster while it
 // writes a lot. The colours never change, only how visible the gears are and
 // how fast they turn. A clockwork chime when a reply ends. No band and no
-// status line, on purpose. /clockworks on|off, sound on|off, storm on|off.
+// status line, on purpose. Claude's own colours and background (text, panels,
+// code blocks) are left as they are, in light and dark mode: the theme draws
+// only the gears, with no background of their own, and frosts the panel over
+// them. /clockworks on|off, sound on|off, storm on|off.
 
 const SCENE = 'clockworks'
 
@@ -46,40 +48,19 @@ function settle(mood: Mood, now: number): View {
   return shown
 }
 
-const { theme } = makeColors({
-  label: 'Clockworks',
-  roles: { accent: '#c98a55', danger: '#e5534b', success: '#7fb069', warning: '#d9a441', pro: '#8fa6c8' },
-  dark: {
-    gray: {
-      anchors: {
-        // Graphite with a trace of blue steel, a few percent apart.
-        'surface-0': '#0c0d0f',
-        'surface-1': '#111316',
-        'surface-2': '#15171a',
-        'surface-3': '#181a1e',
-        'text-primary': '#e9ebee',
-        'text-secondary': '#c3c8ce',
-        'text-muted': '#a0a7b0',
-      },
-    },
-  },
-  only: 'dark',
-  // Near-black code blocks with warm orange keywords, to sit with the bronze.
-  codeTheme: { dark: 'ayu-dark' },
-})
-
+// The look is the backdrop alone: no `colors`, so Claude keeps its own text,
+// panels and code blocks in each mode. The panel behind the chat is dense
+// enough that gears turning behind the text are a soft shape, not moving
+// noise, and takes the app's own panel colour, which follows its mode.
 const LOOK: ThemeSetArgs = {
-  colors: theme,
-  // The panel behind the chat: dense enough that gears turning behind the
-  // text are a soft shape, not moving noise.
-  backdrop: { scene: SCENE, glass: { blur: 14, tint: '#0d0f12', opacity: 0.82 } },
+  backdrop: { scene: SCENE, glass: { blur: 14, opacity: 0.82 } },
 }
 
 const ALT: Record<Mood, string> = {
-  idle: 'Iron gears standing still on a dark ground',
-  wait: 'Iron gears creeping round on a dark ground',
-  busy: 'Iron gears turning on a dark ground',
-  storm: 'Iron gears turning fast on a dark ground',
+  idle: 'Iron gears standing still',
+  wait: 'Iron gears creeping round',
+  busy: 'Iron gears turning',
+  storm: 'Iron gears turning fast',
 }
 
 // The module's own: they start over on a reload, which only means one early redraw.
